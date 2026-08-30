@@ -137,8 +137,8 @@
       count = (d.scenes || []).length;
     } catch (e) { /* ignore */ }
     const cards = [
-      { num: '8', lbl: '数学分类（初等 + 高等）' },
-      { num: '12', lbl: '互动演示（导数/积分/泰勒/傅里叶…）' },
+      { num: '9', lbl: '数学分类（初等 + 高中 + 高等）' },
+      { num: '13', lbl: '互动演示（导数/积分/泰勒/傅里叶/向量场…）' },
       { num: String(count), lbl: '我保存的演示' }
     ];
     $('#dash-cards').innerHTML = cards.map(c => `<div class="dash-card"><div class="num">${c.num}</div><div class="lbl">${c.lbl}</div></div>`).join('');
@@ -147,6 +147,8 @@
       { cat: 'basic', t: '二次函数', d: '拖 a/b/c 看开口、顶点、对称轴', expr: 'a*x^2 + b*x + c' },
       { cat: 'trig', t: '正弦波', d: '振幅 A、频率 w、初相 p', expr: 'A*sin(w*x + p)' },
       { cat: 'calculus', t: '导数与切线', d: '拖动点观察切线斜率 = 导数', demo: 'deriv' },
+      { cat: 'conic', t: '隐函数：圆', d: '直接输入 x^2 + y^2 = 25 即可画出', expr: 'x^2 + y^2 = 25' },
+      { cat: 'conic', t: '向量场与流线', d: '输入 P、Q，点击图面释放粒子', demo: 'vfield' },
       { cat: 'param', t: '利萨茹曲线', d: '两个垂直简谐振动的合成', demo: 'lissajous' },
       { cat: 'param', t: '摆线滚动', d: '车轮上一点的轨迹动画', demo: 'cycloid' },
       { cat: 'fourier', t: '傅里叶变换 · 频谱', d: '时域信号分解出频率成分', demo: 'dft' },
@@ -162,7 +164,7 @@
         gotoPage('math', c.cat);
         if (c.demo) {
           setTimeout(() => {
-            const key = { deriv: '导数', dft: '频谱', lissajous: '利萨茹', cycloid: '摆线', 'fourier-square': '方波' }[c.demo] || '方波';
+            const key = { deriv: '导数', dft: '频谱', lissajous: '利萨茹', cycloid: '摆线', 'fourier-square': '方波', vfield: '向量场' }[c.demo] || '方波';
             const btn = [...document.querySelectorAll('#demo-list .preset-item')].find(x => x.textContent.includes(key));
             btn && btn.click();
           }, 60);

@@ -10,3 +10,6 @@ prototype/exports/
 # 系统与编辑器
 Thumbs.db
 .DS_Store
+
+# 日志
+engine/logs/

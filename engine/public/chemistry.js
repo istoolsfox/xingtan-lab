@@ -9,14 +9,19 @@ const ChemEngine = (() => {
   const ATOMS = {
     H: { color: '#ff6b6b', r: 11, label: 'H' },
     O: { color: '#4d94f7', r: 15, label: 'O' },
-    C: { color: '#8a94a6', r: 16, label: 'C' }
+    C: { color: '#8a94a6', r: 16, label: 'C' },
+    S: { color: '#e3c02f', r: 14, label: 'S' },
+    Fe: { color: '#8d99ae', r: 16, label: 'Fe' },
+    Cu: { color: '#e0862e', r: 16, label: 'Cu' }
   };
   // 分子几何：局部坐标 + 键（原子局部索引对 + 键级）
   const MOLS = {
     H2O: { atoms: ['O', 'H', 'H'], pos: [[0, 0], [-15, 14], [15, 14]], bonds: [[0, 1, 1], [0, 2, 1]] },
     H2: { atoms: ['H', 'H'], pos: [[-13, 0], [13, 0]], bonds: [[0, 1, 1]] },
     O2: { atoms: ['O', 'O'], pos: [[-16, 0], [16, 0]], bonds: [[0, 1, 2]] },
-    CO2: { atoms: ['C', 'O', 'O'], pos: [[0, 0], [-26, 0], [26, 0]], bonds: [[0, 1, 2], [0, 2, 2]] }
+    CO2: { atoms: ['C', 'O', 'O'], pos: [[0, 0], [-26, 0], [26, 0]], bonds: [[0, 1, 2], [0, 2, 2]] },
+    CH4: { atoms: ['C', 'H', 'H', 'H', 'H'], pos: [[0, 0], [0, -22], [21, 7], [-21, 7], [0, 24]], bonds: [[0, 1, 1], [0, 2, 1], [0, 3, 1], [0, 4, 1]] },
+    SO4: { atoms: ['S', 'O', 'O', 'O', 'O'], pos: [[0, 0], [0, -25], [25, 0], [0, 25], [-25, 0]], bonds: [[0, 1, 2], [0, 2, 1], [0, 3, 2], [0, 4, 1]] }
   };
 
   // 把一个分子实例摆到 (x,y,旋转)，返回原子(全局索引)与键
@@ -65,37 +70,28 @@ const ChemEngine = (() => {
           ],
           bonds: [], macro: 1
         }),
-        // 2  重组：4 个 H2 + 2 个 O2（原子两两配对）
-        () => {
-          const o2 = {
-            atoms: [{ el: 'O', x: 250 - 16, y: 210 }, { el: 'O', x: 250 + 16, y: 210 }],
-            bonds: [{ a: 0, b: 3, order: 2 }]
-          };
-          const o22 = { atoms: [{ el: 'O', x: 550 - 16, y: 210 }, { el: 'O', x: 550 + 16, y: 210 }], bonds: [{ a: 6, b: 9, order: 2 }] };
-          return {
-            atoms: [
-              { el: 'H', x: 150 - 13, y: 80 }, { el: 'H', x: 150 + 13, y: 80 },
-              { el: 'H', x: 300 - 13, y: 80 }, { el: 'H', x: 300 + 13, y: 80 },
-              { el: 'H', x: 450 - 13, y: 80 }, { el: 'H', x: 450 + 13, y: 80 },
-              { el: 'H', x: 600 - 13, y: 80 }, { el: 'H', x: 600 + 13, y: 80 },
-              o2.atoms[0], o2.atoms[1], o22.atoms[0], o22.atoms[1]
-            ],
-            bonds: [
-              { a: 1, b: 2, order: 1 }, { a: 4, b: 5, order: 1 }, { a: 7, b: 8, order: 1 }, { a: 10, b: 11, order: 1 },
-              { a: 0, b: 3, order: 2 }, { a: 6, b: 9, order: 2 }
-            ],
-            macro: 2
-          };
-        },
+        // 2  重组：4 个 H2 + 2 个 O2（原子索引与 stage0/1 对齐：O,H,H ×4，键索引 2026-08 修正）
+        // H2a=H1,H2  H2b=H4,H5  H2c=H7,H8  H2d=H10,H11 ｜ O2a=O0,O3  O2b=O6,O9
+        () => ({
+          atoms: [
+            { el: 'O', x: 660 - 16, y: 110 }, { el: 'H', x: 150 - 13, y: 80 }, { el: 'H', x: 150 + 13, y: 80 },
+            { el: 'O', x: 660 + 16, y: 110 }, { el: 'H', x: 300 - 13, y: 80 }, { el: 'H', x: 300 + 13, y: 80 },
+            { el: 'O', x: 660 - 16, y: 210 }, { el: 'H', x: 150 - 13, y: 205 }, { el: 'H', x: 150 + 13, y: 205 },
+            { el: 'O', x: 660 + 16, y: 210 }, { el: 'H', x: 300 - 13, y: 205 }, { el: 'H', x: 300 + 13, y: 205 }
+          ],
+          bonds: [
+            { a: 1, b: 2, order: 1 }, { a: 4, b: 5, order: 1 }, { a: 7, b: 8, order: 1 }, { a: 10, b: 11, order: 1 },
+            { a: 0, b: 3, order: 2 }, { a: 6, b: 9, order: 2 }
+          ],
+          macro: 2
+        }),
         // 3  分组排列：H2 在左（2x2），O2 在右
         () => ({
           atoms: [
-            { el: 'H', x: 170 - 13, y: 100 }, { el: 'H', x: 170 + 13, y: 100 },
-            { el: 'H', x: 300 - 13, y: 100 }, { el: 'H', x: 300 + 13, y: 100 },
-            { el: 'H', x: 170 - 13, y: 205 }, { el: 'H', x: 170 + 13, y: 205 },
-            { el: 'H', x: 300 - 13, y: 205 }, { el: 'H', x: 300 + 13, y: 205 },
-            { el: 'O', x: 660 - 16, y: 120 }, { el: 'O', x: 660 + 16, y: 120 },
-            { el: 'O', x: 660 - 16, y: 210 }, { el: 'O', x: 660 + 16, y: 210 }
+            { el: 'O', x: 660 - 16, y: 120 }, { el: 'H', x: 170 - 13, y: 100 }, { el: 'H', x: 170 + 13, y: 100 },
+            { el: 'O', x: 660 + 16, y: 120 }, { el: 'H', x: 300 - 13, y: 100 }, { el: 'H', x: 300 + 13, y: 100 },
+            { el: 'O', x: 660 - 16, y: 210 }, { el: 'H', x: 170 - 13, y: 205 }, { el: 'H', x: 170 + 13, y: 205 },
+            { el: 'O', x: 660 + 16, y: 210 }, { el: 'H', x: 300 - 13, y: 205 }, { el: 'H', x: 300 + 13, y: 205 }
           ],
           bonds: [
             { a: 1, b: 2, order: 1 }, { a: 4, b: 5, order: 1 }, { a: 7, b: 8, order: 1 }, { a: 10, b: 11, order: 1 },
@@ -172,6 +168,197 @@ const ChemEngine = (() => {
             bonds.push({ a: pr[0], b: pr[1], order: 1 }, { a: pr[0], b: pr[2], order: 1 });
           });
           return { atoms, bonds, macro: 2 };
+        }
+      ]
+    },
+    {
+      id: 'carbon-burn',
+      title: '木炭燃烧（碳与氧气）',
+      equation: 'C + O₂ —点燃→ CO₂',
+      macro: 'charcoal',
+      nAtoms: 6,
+      captions: [
+        '点燃前：常温下木炭与氧气接触不反应',
+        '点燃：化学键断裂，碳原子与氧原子重新组合',
+        '每个 C 原子与 1 个 O₂ 结合 → 1 个 CO₂ 分子（化合反应）',
+        '宏观：剧烈燃烧、发白光；CO₂ 使澄清石灰水变浑浊'
+      ],
+      stages: [
+        // 0  2 个 C + 2 个 O₂（原子索引：C=0,1  O=2..5）
+        () => ({
+          atoms: [
+            { el: 'C', x: 300, y: 200 }, { el: 'C', x: 330, y: 235 },
+            { el: 'O', x: 520 - 16, y: 110 }, { el: 'O', x: 520 + 16, y: 110 },
+            { el: 'O', x: 680 - 16, y: 170 }, { el: 'O', x: 680 + 16, y: 170 }
+          ],
+          bonds: [{ a: 2, b: 3, order: 2 }, { a: 4, b: 5, order: 2 }],
+          macro: 0
+        }),
+        // 1  自由原子
+        () => ({
+          atoms: [
+            { el: 'C', x: 280, y: 210 }, { el: 'C', x: 350, y: 245 },
+            { el: 'O', x: 480, y: 90 }, { el: 'O', x: 560, y: 150 },
+            { el: 'O', x: 640, y: 80 }, { el: 'O', x: 710, y: 190 }
+          ],
+          bonds: [], macro: 1
+        }),
+        // 2  组成 2 个 CO₂（C0=O2,O3 ｜ C1=O4,O5）
+        () => ({
+          atoms: [
+            { el: 'C', x: 350, y: 130 }, { el: 'C', x: 620, y: 190 },
+            { el: 'O', x: 350 - 26, y: 130 }, { el: 'O', x: 350 + 26, y: 130 },
+            { el: 'O', x: 620 - 26, y: 190 }, { el: 'O', x: 620 + 26, y: 190 }
+          ],
+          bonds: [
+            { a: 0, b: 2, order: 2 }, { a: 0, b: 3, order: 2 },
+            { a: 1, b: 4, order: 2 }, { a: 1, b: 5, order: 2 }
+          ],
+          macro: 1
+        }),
+        // 3  CO₂ 向石灰水方向聚集（上方）
+        () => ({
+          atoms: [
+            { el: 'C', x: 430, y: 70 }, { el: 'C', x: 560, y: 95 },
+            { el: 'O', x: 430 - 26, y: 70 }, { el: 'O', x: 430 + 26, y: 70 },
+            { el: 'O', x: 560 - 26, y: 95 }, { el: 'O', x: 560 + 26, y: 95 }
+          ],
+          bonds: [
+            { a: 0, b: 2, order: 2 }, { a: 0, b: 3, order: 2 },
+            { a: 1, b: 4, order: 2 }, { a: 1, b: 5, order: 2 }
+          ],
+          macro: 2
+        })
+      ]
+    },
+    {
+      id: 'methane-burn',
+      title: '甲烷燃烧（天然气）',
+      equation: 'CH₄ + 2O₂ —点燃→ CO₂ + 2H₂O',
+      macro: 'methane',
+      nAtoms: 9,
+      captions: [
+        '点燃前：甲烷分子（CH₄，天然气主要成分）与氧气混合',
+        '点燃：CH₄ 与 O₂ 的化学键断裂，分解为原子',
+        '原子重组：C → CO₂；每 4 个 H + 2 个 O → 2 个 H₂O',
+        '宏观：蓝色火焰；干冷烧杯内壁有水珠、石灰水变浑浊（同时生成 H₂O 和 CO₂）'
+      ],
+      stages: [
+        // 0  1 个 CH₄ + 2 个 O₂（C=0 H=1..4 O=5..8）
+        () => {
+          const m = place('CH4', 280, 150, 0, 0);
+          return {
+            atoms: [...m.atoms,
+              { el: 'O', x: 560 - 16, y: 100 }, { el: 'O', x: 560 + 16, y: 100 },
+              { el: 'O', x: 700 - 16, y: 200 }, { el: 'O', x: 700 + 16, y: 200 }],
+            bonds: [...m.bonds, { a: 5, b: 6, order: 2 }, { a: 7, b: 8, order: 2 }],
+            macro: 0
+          };
+        },
+        // 1  自由原子
+        () => ({
+          atoms: [
+            { el: 'C', x: 300, y: 170 },
+            { el: 'H', x: 250, y: 100 }, { el: 'H', x: 360, y: 120 }, { el: 'H', x: 270, y: 240 }, { el: 'H', x: 380, y: 230 },
+            { el: 'O', x: 520, y: 80 }, { el: 'O', x: 610, y: 150 },
+            { el: 'O', x: 680, y: 70 }, { el: 'O', x: 760, y: 180 }
+          ],
+          bonds: [], macro: 1
+        }),
+        // 2  CO₂（C0+O5,O6）+ 2 个 H₂O（O7+H1,H2 ｜ O8+H3,H4）
+        () => {
+          const w1 = place('H2O', 560, 200, 0, 0);
+          const w2 = place('H2O', 740, 130, 0, 0);
+          const atoms = new Array(9);
+          atoms[0] = { el: 'C', x: 350, y: 120 };
+          atoms[5] = { el: 'O', x: 350 - 26, y: 120 };
+          atoms[6] = { el: 'O', x: 350 + 26, y: 120 };
+          atoms[7] = { ...w1.atoms[0] }; atoms[1] = { ...w1.atoms[1] }; atoms[2] = { ...w1.atoms[2] };
+          atoms[8] = { ...w2.atoms[0] }; atoms[3] = { ...w2.atoms[1] }; atoms[4] = { ...w2.atoms[2] };
+          return {
+            atoms,
+            bonds: [
+              { a: 0, b: 5, order: 2 }, { a: 0, b: 6, order: 2 },
+              { a: 7, b: 1, order: 1 }, { a: 7, b: 2, order: 1 },
+              { a: 8, b: 3, order: 1 }, { a: 8, b: 4, order: 1 }
+            ],
+            macro: 1
+          };
+        },
+        // 3  生成物分离聚放（H₂O 凝结、CO₂ 上浮）
+        () => {
+          const w1 = place('H2O', 300, 230, 0, 0);
+          const w2 = place('H2O', 420, 250, 0, 0);
+          const atoms = new Array(9);
+          atoms[0] = { el: 'C', x: 600, y: 80 };
+          atoms[5] = { el: 'O', x: 600 - 26, y: 80 };
+          atoms[6] = { el: 'O', x: 600 + 26, y: 80 };
+          atoms[7] = { ...w1.atoms[0] }; atoms[1] = { ...w1.atoms[1] }; atoms[2] = { ...w1.atoms[2] };
+          atoms[8] = { ...w2.atoms[0] }; atoms[3] = { ...w2.atoms[1] }; atoms[4] = { ...w2.atoms[2] };
+          return {
+            atoms,
+            bonds: [
+              { a: 0, b: 5, order: 2 }, { a: 0, b: 6, order: 2 },
+              { a: 7, b: 1, order: 1 }, { a: 7, b: 2, order: 1 },
+              { a: 8, b: 3, order: 1 }, { a: 8, b: 4, order: 1 }
+            ],
+            macro: 2
+          };
+        }
+      ]
+    },
+    {
+      id: 'fe-cuso4',
+      title: '铁与硫酸铜（置换反应）',
+      equation: 'Fe + CuSO₄ → FeSO₄ + Cu',
+      macro: 'displacement',
+      nAtoms: 7,
+      captions: [
+        '反应前：铁钉浸入蓝色溶液，Cu²⁺ 与 SO₄²⁻（旁观离子）在水中运动',
+        '反应本质：Fe 失 2e⁻ → Fe²⁺；Cu²⁺ 得 2e⁻ → Cu（电子转移）',
+        '宏观：红色铜覆盖在铁钉表面，溶液由蓝色变为浅绿色',
+        '金属活动性：Fe > Cu；质量守恒——铁溶解多少，铜就析出多少'
+      ],
+      stages: [
+        // 0  Fe 原子（左，代表铁钉表面）+ Cu²⁺（中）+ SO₄²⁻（右）
+        () => {
+          const s = place('SO4', 620, 160, 0, 0);
+          const atoms = [{ el: 'Fe', x: 230, y: 180 }, { el: 'Cu', x: 430, y: 130 }, ...s.atoms];
+          // s.atoms: S,O,O,O,O → 全局索引 2..6
+          return {
+            atoms,
+            bonds: [
+              { a: 2, b: 3, order: 2 }, { a: 2, b: 4, order: 1 },
+              { a: 2, b: 5, order: 2 }, { a: 2, b: 6, order: 1 }
+            ],
+            macro: 0
+          };
+        },
+        // 1  电子转移：Cu²⁺ 移向铁钉，Fe 即将进入溶液
+        () => {
+          const s = place('SO4', 640, 200, 0, 0);
+          const atoms = [{ el: 'Fe', x: 260, y: 180 }, { el: 'Cu', x: 320, y: 178 }, ...s.atoms];
+          return {
+            atoms,
+            bonds: [
+              { a: 2, b: 3, order: 2 }, { a: 2, b: 4, order: 1 },
+              { a: 2, b: 5, order: 2 }, { a: 2, b: 6, order: 1 }
+            ],
+            macro: 1
+          };
+        },
+        // 2  完成：Cu 析出附着（Fe 原位），Fe²⁺ 进入溶液
+        () => {
+          const s = place('SO4', 660, 130, 0, 0);
+          const atoms = [{ el: 'Fe', x: 560, y: 220 }, { el: 'Cu', x: 240, y: 178 }, ...s.atoms];
+          return {
+            atoms,
+            bonds: [
+              { a: 2, b: 3, order: 2 }, { a: 2, b: 4, order: 1 },
+              { a: 2, b: 5, order: 2 }, { a: 2, b: 6, order: 1 }
+            ],
+            macro: 2
+          };
         }
       ]
     }
@@ -263,6 +450,9 @@ const ChemEngine = (() => {
     ctx.fillText('宏观 · 实验现象', 14, 20);
     if (reaction.macro === 'electrolyzer') drawElectrolyzer(ctx, st, time, W, H);
     else if (reaction.macro === 'combustion') drawCombustion(ctx, st, time, W, H);
+    else if (reaction.macro === 'charcoal') drawCharcoal(ctx, st, time, W, H);
+    else if (reaction.macro === 'methane') drawMethane(ctx, st, time, W, H);
+    else if (reaction.macro === 'displacement') drawDisplacement(ctx, st, time, W, H);
   }
 
   function drawElectrolyzer(ctx, st, time) {
@@ -378,6 +568,184 @@ const ChemEngine = (() => {
     } else {
       ctx.fillStyle = '#9aa5b5'; ctx.font = '12px sans-serif';
       ctx.fillText('待点燃', cx + 24, 232);
+    }
+  }
+
+  // 木炭在集气瓶中燃烧：0 待点燃 → 1 剧烈燃烧白光 → 2 石灰水变浑浊
+  function drawCharcoal(ctx, st, time) {
+    const mix = st.macroMix;
+    const cur = mix.from + (mix.to - mix.from) * mix.t;
+    const fl = Math.min(1, cur);                       // 火焰/白光强度
+    const lime = Math.max(0, Math.min(1, (cur - 1.7) / 0.3)); // 浑浊程度
+    const cx = 430;
+    // 集气瓶
+    ctx.strokeStyle = '#8a97a8'; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx - 90, 245); ctx.lineTo(cx - 90, 80);
+    ctx.quadraticCurveTo(cx - 90, 60, cx - 70, 58);
+    ctx.lineTo(cx + 70, 58); ctx.quadraticCurveTo(cx + 90, 60, cx + 90, 80);
+    ctx.lineTo(cx + 90, 245); ctx.closePath();
+    ctx.fillStyle = 'rgba(200,225,245,.10)'; ctx.fill(); ctx.stroke();
+    // 燃烧匙与木炭
+    ctx.strokeStyle = '#4a5261'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(cx, 20); ctx.lineTo(cx, 190); ctx.stroke();
+    ctx.fillStyle = '#3d4450';
+    ctx.beginPath(); ctx.ellipse(cx, 205, 30, 16, 0, 0, Math.PI * 2); ctx.fill();
+    // 白光
+    if (fl > 0.02) {
+      const flick = Math.sin(time / 55) * 4 + Math.sin(time / 21) * 3;
+      ctx.globalAlpha = fl;
+      const g = ctx.createRadialGradient(cx, 190 + flick, 4, cx, 190 + flick, 70);
+      g.addColorStop(0, 'rgba(255,255,240,.95)');
+      g.addColorStop(0.4, 'rgba(255,240,180,.55)');
+      g.addColorStop(1, 'rgba(255,220,120,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(cx, 190 + flick, 70, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#c0392b'; ctx.font = '12px sans-serif';
+      ctx.fillText('剧烈燃烧 · 发出白光', cx - 60, 272);
+    } else {
+      ctx.fillStyle = '#9aa5b5'; ctx.font = '12px sans-serif';
+      ctx.fillText('待点燃', cx - 18, 272);
+    }
+    // 右侧：澄清石灰水试管（变浑浊）
+    const tx = 700;
+    ctx.strokeStyle = '#8a97a8'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.roundRect(tx - 26, 120, 52, 130, 8); ctx.stroke();
+    ctx.fillStyle = `rgba(235,245,255,${0.75 - 0.25 * lime})`;
+    ctx.fillRect(tx - 23, 160, 46, 87);
+    if (lime > 0) {
+      ctx.fillStyle = `rgba(225,235,245,${lime})`; ctx.fillRect(tx - 23, 160, 46, 87);
+      ctx.fillStyle = `rgba(160,175,195,${0.9 * lime})`;
+      for (let i = 0; i < 8; i++) {
+        ctx.beginPath(); ctx.arc(tx - 14 + (i % 4) * 9, 175 + Math.floor(i / 4) * 22, 3, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.fillStyle = '#5b6575'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('澄清石灰水', tx, 270);
+    ctx.fillText(lime > 0.5 ? '变浑浊 ✓' : '', tx, 145);
+    ctx.textAlign = 'left';
+  }
+
+  // 甲烷燃烧：0 待点燃 → 1 蓝色火焰 → 2 产物检验（水珠 + 浑浊）
+  function drawMethane(ctx, st, time) {
+    const mix = st.macroMix;
+    const cur = mix.from + (mix.to - mix.from) * mix.t;
+    const fl = Math.min(1, cur);
+    const drops = Math.max(0, Math.min(1, (cur - 1.5) / 0.5));
+    const lime = Math.max(0, Math.min(1, (cur - 1.7) / 0.3));
+    const cx = 380;
+    // 喷嘴
+    ctx.fillStyle = '#4a5261';
+    ctx.fillRect(cx - 30, 238, 60, 30);
+    ctx.fillRect(cx - 9, 222, 18, 16);
+    ctx.fillStyle = '#9aa5b5'; ctx.font = '12px sans-serif';
+    ctx.fillText('CH₄', cx + 34, 240);
+    // 蓝色火焰
+    if (fl > 0.02) {
+      const flick = Math.sin(time / 50) * 3 + Math.sin(time / 19) * 2;
+      ctx.globalAlpha = fl;
+      ctx.fillStyle = '#4d94f7';
+      ctx.beginPath();
+      ctx.moveTo(cx - 18, 224);
+      ctx.quadraticCurveTo(cx - 24, 180 + flick, cx, 150 + flick);
+      ctx.quadraticCurveTo(cx + 24, 180 + flick, cx + 18, 224);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#bfe0ff';
+      ctx.beginPath();
+      ctx.moveTo(cx - 8, 224);
+      ctx.quadraticCurveTo(cx - 11, 200 + flick, cx, 186 + flick);
+      ctx.quadraticCurveTo(cx + 11, 200 + flick, cx + 8, 224);
+      ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#2b6cd4'; ctx.font = 'bold 12px sans-serif';
+      ctx.fillText('蓝色火焰', cx + 30, 190);
+    } else {
+      ctx.fillStyle = '#9aa5b5'; ctx.font = '12px sans-serif';
+      ctx.fillText('待点燃', cx + 26, 232);
+    }
+    // 干冷烧杯（内壁水珠）
+    ctx.strokeStyle = '#8a97a8'; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx + 90, 175); ctx.lineTo(cx + 90, 62); ctx.lineTo(cx + 250, 62); ctx.lineTo(cx + 250, 175);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(190,215,240,.12)'; ctx.fill();
+    if (drops > 0) {
+      ctx.fillStyle = `rgba(90,150,220,${0.75 * drops})`;
+      const D = [[110, 72], [140, 68], [172, 71], [200, 67], [228, 73], [126, 90], [212, 92]];
+      D.forEach(d => { ctx.beginPath(); ctx.arc(cx + d[0], d[1], 3, 0, Math.PI * 2); ctx.fill(); });
+      ctx.fillStyle = `rgba(60,110,180,${drops})`; ctx.font = '12px sans-serif';
+      ctx.fillText('水珠（生成 H₂O）', cx + 108, 108);
+    }
+    // 石灰水（变浑浊）
+    const tx = 760;
+    ctx.strokeStyle = '#8a97a8'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.roundRect(tx - 26, 120, 52, 130, 8); ctx.stroke();
+    ctx.fillStyle = `rgba(235,245,255,${0.75 - 0.25 * lime})`;
+    ctx.fillRect(tx - 23, 160, 46, 87);
+    if (lime > 0) {
+      ctx.fillStyle = `rgba(225,235,245,${lime})`; ctx.fillRect(tx - 23, 160, 46, 87);
+      ctx.fillStyle = `rgba(160,175,195,${0.9 * lime})`;
+      for (let i = 0; i < 8; i++) {
+        ctx.beginPath(); ctx.arc(tx - 14 + (i % 4) * 9, 175 + Math.floor(i / 4) * 22, 3, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = `rgba(60,110,180,${lime})`; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('变浑浊（生成 CO₂）', tx, 145); ctx.textAlign = 'left';
+    } else {
+      ctx.fillStyle = '#5b6575'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('澄清石灰水', tx, 145); ctx.textAlign = 'left';
+    }
+  }
+
+  // 铁与硫酸铜置换：0 浸入蓝色溶液 → 1 反应中 → 2 铜析出、溶液变浅绿
+  function drawDisplacement(ctx, st, time) {
+    const mix = st.macroMix;
+    const cur = mix.from + (mix.to - mix.from) * mix.t;
+    const prog = Math.min(1, cur / 2);                 // 总进度
+    const cx = 450;
+    // 烧杯
+    ctx.strokeStyle = '#8a97a8'; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx - 150, 80); ctx.lineTo(cx - 150, 250); ctx.lineTo(cx + 150, 250); ctx.lineTo(cx + 150, 80);
+    ctx.stroke();
+    // 溶液：蓝色 → 浅绿
+    const r = Math.round(96 + (150 - 96) * prog);
+    const g = Math.round(150 + (195 - 150) * prog);
+    const b = Math.round(225 + (155 - 225) * prog);
+    ctx.fillStyle = `rgba(${r},${g},${b},.55)`;
+    ctx.fillRect(cx - 147, 110, 294, 137);
+    // 液面
+    ctx.strokeStyle = `rgba(${r},${g},${b},.9)`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(cx - 147, 110); ctx.lineTo(cx + 147, 110); ctx.stroke();
+    // 铁钉（银灰，表面逐渐覆盖红色铜）
+    const nx = cx - 60, top = 90;
+    ctx.strokeStyle = '#6b7686'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(nx - 10, top); ctx.lineTo(nx - 10, 240); ctx.lineTo(nx + 10, 240); ctx.lineTo(nx + 10, top);
+    ctx.stroke();
+    ctx.fillStyle = '#8d99ae';
+    ctx.beginPath(); ctx.arc(nx, top, 11, Math.PI, 0); ctx.fill();
+    ctx.fillRect(nx - 10, top, 20, 150 - top);
+    // 析出的红色铜（下半段逐渐变红）
+    if (prog > 0.15) {
+      const cover = Math.min(1, (prog - 0.15) / 0.5);
+      ctx.fillStyle = `rgba(224,134,46,${cover})`;
+      ctx.fillRect(nx - 10, 170, 20, 70);
+      ctx.beginPath(); ctx.ellipse(nx, 240, 10, 5, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    // 说明文字
+    ctx.fillStyle = '#5b6575'; ctx.font = '12px sans-serif';
+    ctx.fillText('铁钉', nx - 42, 200);
+    ctx.fillStyle = prog > 0.5 ? '#b45309' : '#5b6575';
+    ctx.fillText(prog > 0.5 ? '红色铜析出 ✓' : '', cx + 60, 150);
+    ctx.fillStyle = '#5b6575';
+    ctx.fillText('溶液：Cu²⁺（蓝）→ Fe²⁺（浅绿）', cx - 140, 235);
+    // 微小气泡般的离子浮动点
+    ctx.fillStyle = 'rgba(255,255,255,.5)';
+    for (let i = 0; i < 5; i++) {
+      const px = cx - 120 + ((time / 30 + i * 137) % 260);
+      const py = 130 + (i * 37 % 90);
+      ctx.beginPath(); ctx.arc(px, py, 1.6, 0, Math.PI * 2); ctx.fill();
     }
   }
 

@@ -105,12 +105,35 @@ const MathLab = (() => {
     },
     param: {
       name: '⑧ 参数曲线·极坐标', level: '拓展',
-      intro: '当 x、y 各自随参数 t 变化，或用角度与半径描述曲线时，会得到一系列经典曲线。',
-      presets: [],
+      intro: '当 x、y 各自随参数 t 变化，或用角度与半径描述曲线时，会得到一系列经典曲线。极坐标可直接输入 r = ...（θ 可写作 t）。',
+      presets: [
+        { name: '心形线', expr: 'r = 1 + cos(t)', desc: 'r = 1 + cosθ' },
+        { name: '玫瑰线（三叶）', expr: 'r = cos(3*t)', desc: 'r = cos(kθ)，k 奇数 k 叶' },
+        { name: '玫瑰线（四叶）', expr: 'r = 2*cos(2*t)', desc: 'k 偶数时 2k 叶' },
+        { name: '阿基米德螺线', expr: 'r = t/6', desc: 'r = aθ，匀速螺旋' },
+        { name: '双纽线', expr: 'r = sqrt(abs(2*cos(2*t)))', desc: 'r² = 2cos2θ' }
+      ],
       demos: [
         { id: 'rose', name: '极坐标玫瑰线', desc: 'r = cos(kθ)，花瓣数由 k 决定' },
         { id: 'lissajous', name: '利萨茹曲线', desc: '两个垂直简谐振动的合成' },
         { id: 'cycloid', name: '摆线滚动', desc: '滚轮上一点的轨迹（可播放动画）' }
+      ]
+    },
+    conic: {
+      name: '⑨ 解析几何 · 向量场', level: '高中数学',
+      intro: '直接输入含 = 的表达式即可画出隐函数曲线（如 x^2 + y^2 = 25）；参数 a、b 可拖动观察曲线如何变化。',
+      presets: [
+        { name: '圆', expr: 'x^2 + y^2 = 25', desc: '到定点距离等于定长' },
+        { name: '椭圆', expr: 'x^2/25 + y^2/9 = 1', desc: 'a=5，b=3' },
+        { name: '椭圆（可调）', expr: 'x^2/a^2 + y^2/b^2 = 1', desc: '拖动 a、b，看离心率' },
+        { name: '双曲线', expr: 'x^2/9 - y^2/4 = 1', desc: '实轴 6，虚轴 4' },
+        { name: '抛物线（开口向右）', expr: 'y^2 = 2*p*x', desc: '焦点 (p/2, 0)' },
+        { name: '过两点的直线系', expr: 'a*x + y = 3', desc: '拖 a 看直线系' },
+        { name: '笛卡尔叶形线', expr: 'x^3 + y^3 = 3*x*y', desc: '经典隐函数曲线' },
+        { name: '环面曲线', expr: '(x^2 + y^2 - 4)^2 = 4', desc: 'F(x,y)=常数 的一般形式' }
+      ],
+      demos: [
+        { id: 'vfield', name: '向量场与流线', desc: '输入 P、Q，点击图面释放粒子沿场运动' }
       ]
     }
   };
@@ -118,7 +141,9 @@ const MathLab = (() => {
   // ---------------- 表达式解析 ----------------
   // refNames: 允许被嵌套引用的已有函数名。表达式里的 g(x) 会被编译成 __F.g(x)，
   // __F 在每次求值时实时构建，因此被引用函数改动后引用方自动联动。
-  function parseExpr(expr, refNames) {
+  // opts.vars：显式指定变量（极坐标 ['t']、隐函数 ['x','y']）；省略时自动判断（含 y → 三维）
+  function parseExpr(expr, refNames, opts) {
+    opts = opts || {};
     refNames = refNames || [];
     if (!/^[0-9a-zA-Z+\-*/().^\s,]+$/.test(expr)) throw new Error('含有不支持的字符');
     let js = expr.replace(/\bMath\s*\.\s*/g, '').replace(/\^/g, '**');
@@ -126,12 +151,12 @@ const MathLab = (() => {
     let stripped = js.replace(FN_RE, '');
     refs.forEach(n => { stripped = stripped.replace(new RegExp('\\b' + n + '\\s*\\(', 'g'), ''); });
     const refLetters = refs.join('');
+    const is3D = !opts.vars && /\by\b/.test(stripped);
+    const vars = opts.vars || (is3D ? ['x', 'y'] : ['x']);
     const letters = [...new Set(stripped.match(/[a-zA-Z]/g) || [])]
-      .filter(c => c !== 'x' && c !== 'y' && c !== 'e' && !refLetters.includes(c));
-    const is3D = /\by\b/.test(stripped);
+      .filter(c => c !== 'e' && !refLetters.includes(c) && !vars.includes(c));
     let withMath = js.replace(FN_RE, 'Math.$1').replace(/\bsgn\(/g, 'Math.sign(');
     refs.forEach(n => { withMath = withMath.replace(new RegExp('\\b' + n + '\\s*\\(', 'g'), '__F.' + n + '('); });
-    const vars = is3D ? ['x', 'y'] : ['x'];
     const argNames = ['__F', ...vars, ...letters];
     const f = new Function(...argNames, `"use strict"; return (${withMath});`);
     // 试算：嵌套引用用替身作用域（任何函数返回 1）
@@ -164,11 +189,12 @@ const MathLab = (() => {
     fns.forEach(o => { s[o.name] = o.fn; });
     return s;
   }
-  function nextName() {
+  function nextName(base) {
+    if (base && !fns.some(o => o.name === base)) return base;
     for (const b of NAME_SEQ) if (!fns.some(o => o.name === b)) return b;
     let i = 2;
-    while (fns.some(o => o.name === 'f' + i)) i++;
-    return 'f' + i;
+    while (fns.some(o => o.name === (base || 'f') + i)) i++;
+    return (base || 'f') + i;
   }
   // entry 想引用 refNames，检查是否会形成循环嵌套
   function hasCycle(entry, refNames) {
@@ -187,6 +213,7 @@ const MathLab = (() => {
   const entryOf = id => fns.find(o => o.id === id);
 
   // ---------------- 2D ----------------
+  let impQueued = false, impBuilding = false;
   function ensureBoard() {
     if (!board) {
       board = JXG.JSXGraph.initBoard('plot2d', {
@@ -195,50 +222,242 @@ const MathLab = (() => {
         zoom: { wheel: true, needShift: false },
         showNavigation: false, keyboard: { enabled: false }
       });
+      // 平移/缩放后隐函数等值线按新视图重算（rAF 合帧；重建期间屏蔽再次触发，防止循环）
+      board.on('update', () => {
+        if (impBuilding || impQueued || !fns.some(o => o.type === 'implicit')) return;
+        impQueued = true;
+        requestAnimationFrame(() => {
+          impBuilding = true;
+          try { fns.forEach(o => { if (o.type === 'implicit') o.build(); }); }
+          finally { impBuilding = false; impQueued = false; }
+        });
+      });
     }
     return board;
   }
 
-  function add2D(expr) {
-    const p = parseExpr(expr, fns.map(o => o.name));
-    const name = nextName();
+  function baseEntry(type, expr, nameBase) {
     const color = COLORS[colorIdx++ % COLORS.length];
-    const pr = {};
-    p.params.forEach(k => { pr[k] = 1; });
-    const entry = {
-      id: 'fn' + idc++, name, expr, f: p.f, params: p.params, pr, refs: p.refs,
-      color, visible: true
-    };
-    entry.fn = x => {
-      try {
-        const v = entry.f(scope(), x, ...entry.params.map(k => entry.pr[k]));
-        return typeof v === 'number' ? v : NaN;
-      } catch (e) { return NaN; }
-    };
-    entry.curve = ensureBoard().create('functiongraph', [entry.fn, -100, 100], { strokeColor: color, strokeWidth: 2.5 });
-    entry.curve.on('down', () => { if (mode === '2d') selectFn(entry.id); });
+    return { id: 'fn' + idc++, name: nextName(nameBase), type, expr, params: [], pr: {}, refs: [], color, visible: true };
+  }
+
+  function finishEntry(entry) {
     fns.push(entry);
     renderFnList();
     selectFn(entry.id);
     return entry;
   }
 
-  function update2DExpr(entry, newExpr) {
-    const others = fns.filter(o => o !== entry).map(o => o.name);
-    const p = parseExpr(newExpr, others);
+  function addFn(expr, parsed) {
+    const p = parsed || parseExpr(expr, fns.map(o => o.name));
+    const pr = {};
+    p.params.forEach(k => { pr[k] = 1; });
+    const entry = baseEntry('fn', expr);
+    entry.f = p.f; entry.params = p.params; entry.pr = pr; entry.refs = p.refs;
+    entry.fn = x => {
+      try {
+        const v = entry.f(scope(), x, ...entry.params.map(k => entry.pr[k]));
+        return typeof v === 'number' ? v : NaN;
+      } catch (e) { return NaN; }
+    };
+    entry.curve = ensureBoard().create('functiongraph', [entry.fn, -100, 100], { strokeColor: entry.color, strokeWidth: 2.5 });
+    entry.curve.on('down', () => { if (mode === '2d') selectFn(entry.id); });
+    return finishEntry(entry);
+  }
+
+  function addPolar(expr, parsed) {
+    // expr 形如 "r = 2*cos(t)"（θ 已归一化为 t），画出 x=r(t)·cos t，y=r(t)·sin t
+    const rhs = expr.replace(/^r\s*=/i, '');
+    const p = parsed || parseExpr(rhs, fns.map(o => o.name), { vars: ['t'] });
+    const pr = {};
+    p.params.forEach(k => { pr[k] = 1; });
+    const entry = baseEntry('polar', expr, 'r');
+    entry.rhs = rhs; entry.f = p.f; entry.params = p.params; entry.pr = pr; entry.refs = p.refs;
+    entry.r = t => {
+      try {
+        const v = entry.f(scope(), t, ...entry.params.map(k => entry.pr[k]));
+        return typeof v === 'number' ? v : NaN;
+      } catch (e) { return NaN; }
+    };
+    // t 覆盖 0~8π：玫瑰线 2π 足够闭合，螺线类也能看到足够多圈
+    entry.curve = ensureBoard().create('curve',
+      [t => entry.r(t) * Math.cos(t), t => entry.r(t) * Math.sin(t), 0, 8 * Math.PI],
+      { strokeColor: entry.color, strokeWidth: 2.5 });
+    entry.curve.on('down', () => { if (mode === '2d') selectFn(entry.id); });
+    return finishEntry(entry);
+  }
+
+  // ---------------- 隐函数：marching squares 等值线 ----------------
+  // F(x,y) = 左边 − 右边 = 0。网格采样后在单元格内线性插值出零线段，再拼接成折线。
+  const MS_TABLE = {
+    1: [[0, 3]], 2: [[0, 1]], 3: [[1, 3]], 4: [[1, 2]],
+    5: [[0, 3], [1, 2]], 6: [[0, 2]], 7: [[2, 3]], 8: [[2, 3]],
+    9: [[0, 2]], 10: [[0, 1], [2, 3]], 11: [[1, 2]], 12: [[1, 3]],
+    13: [[0, 1]], 14: [[0, 3]]
+  };
+
+  function joinSegments(segs) {
+    const key = (x, y) => Math.round(x * 1e6) + ',' + Math.round(y * 1e6);
+    const near = new Map();
+    segs.forEach((s, i) => {
+      [key(s[0], s[1]), key(s[2], s[3])].forEach(k => {
+        if (!near.has(k)) near.set(k, []);
+        near.get(k).push(i);
+      });
+    });
+    const used = new Uint8Array(segs.length);
+    const takeAt = k => {
+      const arr = near.get(k);
+      if (arr) while (arr.length) {
+        const i = arr.pop();
+        if (!used[i]) {
+          used[i] = 1;
+          const s = segs[i];
+          return key(s[0], s[1]) === k ? [s[2], s[3]] : [s[0], s[1]];
+        }
+      }
+      return null;
+    };
+    const lines = [];
+    for (let i = 0; i < segs.length; i++) {
+      if (used[i]) continue;
+      used[i] = 1;
+      const s = segs[i];
+      const pts = [[s[0], s[1]], [s[2], s[3]]];
+      for (let dir = 0; dir < 2; dir++) {
+        let next = takeAt(key(pts[pts.length - 1][0], pts[pts.length - 1][1]));
+        while (next) {
+          pts.push(next);
+          next = takeAt(key(pts[pts.length - 1][0], pts[pts.length - 1][1]));
+        }
+        if (dir === 0) pts.reverse();
+      }
+      lines.push(pts);
+    }
+    return lines;
+  }
+
+  function buildImplicitCurve(entry) {
+    const bb = ensureBoard().getBoundingBox(); // [xmin, ymax, xmax, ymin]
+    const x0 = bb[0], y1 = bb[1], x1 = bb[2], y0 = bb[3];
+    const gx0 = x0 - (x1 - x0) * 0.04, gx1 = x1 + (x1 - x0) * 0.04;
+    const gy0 = y0 - (y1 - y0) * 0.04, gy1 = y1 + (y1 - y0) * 0.04;
+    const nx = 140;
+    const ny = Math.max(30, Math.round(nx * (gy1 - gy0) / (gx1 - gx0)));
+    const dx = (gx1 - gx0) / nx, dy = (gy1 - gy0) / ny;
+    const W = nx + 1;
+    const V = new Float64Array(W * (ny + 1));
+    for (let j = 0; j <= ny; j++) {
+      const y = gy0 + j * dy;
+      for (let i = 0; i < W; i++) V[j * W + i] = entry.fv(gx0 + i * dx, y);
+    }
+    const segs = [];
+    for (let j = 0; j < ny; j++) {
+      for (let i = 0; i < nx; i++) {
+        const v0 = V[j * W + i], v1 = V[j * W + i + 1],
+          v2 = V[(j + 1) * W + i + 1], v3 = V[(j + 1) * W + i];
+        if (isNaN(v0) || isNaN(v1) || isNaN(v2) || isNaN(v3)) continue;
+        const code = (v0 > 0 ? 1 : 0) | (v1 > 0 ? 2 : 0) | (v2 > 0 ? 4 : 0) | (v3 > 0 ? 8 : 0);
+        if (code === 0 || code === 15) continue;
+        const x = gx0 + i * dx, y = gy0 + j * dy;
+        const P = [[x, y], [x + dx, y], [x + dx, y + dy], [x, y + dy]];
+        const E = [[P[0], P[1], v0, v1], [P[1], P[2], v1, v2], [P[3], P[2], v3, v2], [P[0], P[3], v0, v3]];
+        (MS_TABLE[code] || []).forEach(pair => {
+          const A = E[pair[0]], B = E[pair[1]];
+          const ta = A[2] / (A[2] - A[3]), tb = B[2] / (B[2] - B[3]);
+          segs.push([A[0][0] + (A[1][0] - A[0][0]) * ta, A[0][1] + (A[1][1] - A[0][1]) * ta,
+            B[0][0] + (B[1][0] - B[0][0]) * tb, B[0][1] + (B[1][1] - B[0][1]) * tb]);
+        });
+      }
+    }
+    if (entry.curves) entry.curves.forEach(c => { try { board.removeObject(c); } catch (e) { /* ignore */ } });
+    entry.curves = joinSegments(segs).map(pts => {
+      const c = board.create('curve', [pts.map(p => p[0]), pts.map(p => p[1])],
+        { strokeColor: entry.color, strokeWidth: 2.8, curveType: 'plot' });
+      c.on('down', () => { if (mode === '2d') selectFn(entry.id); });
+      return c;
+    });
+  }
+
+  function addImplicit(expr, parsed) {
+    // expr 形如 "x^2 + y^2 = 25"，即 F(x,y) = 左边 − 右边 = 0
+    const parts = expr.split('=');
+    const p = parsed || parseExpr('(' + parts[0].trim() + ') - (' + parts[1].trim() + ')',
+      fns.map(o => o.name), { vars: ['x', 'y'] });
+    const pr = {};
+    p.params.forEach(k => { pr[k] = 1; });
+    const entry = baseEntry('implicit', expr, 'C');
+    entry.F = p.f; entry.params = p.params; entry.pr = pr; entry.refs = p.refs;
+    entry.fv = (x, y) => {
+      try {
+        const v = entry.F(scope(), x, y, ...entry.params.map(k => entry.pr[k]));
+        return typeof v === 'number' ? v : NaN;
+      } catch (e) { return NaN; }
+    };
+    entry.curves = [];
+    entry.build = () => buildImplicitCurve(entry);
+    entry.build();
+    return finishEntry(entry);
+  }
+
+  const TYPE_NAME = { fn: '函数 y=f(x)', polar: '极坐标 r(θ)', implicit: '隐函数 F(x,y)=0' };
+
+  // 把用户输入归类：r= 开头 → 极坐标；含等号 → 隐函数（y=... 视为普通函数，z=... 视为三维）
+  function routeExpr(expr, refNames) {
+    const e = expr.trim().replace(/θ/g, 't');
+    if (/^r\s*=/i.test(e)) {
+      if (/\by\b/.test(e.replace(/^r\s*=/i, ''))) throw new Error('极坐标表达式不能含 y（角度请写 t 或 θ）');
+      return { type: 'polar', expr: e };
+    }
+    if (e.includes('=')) {
+      const parts = e.split('=');
+      if (parts.length > 2) throw new Error('最多只能有一个等号');
+      const lhs = parts[0].trim(), rhs = parts[1].trim();
+      if (!lhs || !rhs) throw new Error('等号两侧都需要表达式');
+      if (lhs === 'y' && !/\by\b/.test(rhs)) return { type: 'fn', expr: rhs };
+      if (lhs === 'z' && /\by\b/.test(rhs)) return { type: 'fn3d', expr: rhs };
+      return { type: 'implicit', expr: e };
+    }
+    return { type: 'fn', expr: e };
+  }
+
+  // 按类型重新解析 entry 的表达式；parsed 允许调用方传入已解析结果
+  function reparseEntry(entry, newExpr, others, parsed) {
+    const r = routeExpr(newExpr, others);
+    if (r.type === 'fn3d') throw new Error('三维曲面请在三维视图下编辑');
+    if (r.type !== entry.type) throw new Error('不能改变表达式类型（当前是' + TYPE_NAME[entry.type] + '）');
+    let p = parsed;
+    if (!p) {
+      if (r.type === 'fn') p = parseExpr(r.expr, others);
+      else if (r.type === 'polar') p = parseExpr(r.expr.replace(/^r\s*=/i, ''), others, { vars: ['t'] });
+      else {
+        const parts = r.expr.split('=');
+        p = parseExpr('(' + parts[0].trim() + ') - (' + parts[1].trim() + ')', others, { vars: ['x', 'y'] });
+      }
+    }
     if (hasCycle(entry, p.refs)) throw new Error('不允许循环嵌套（f → g → f）');
-    entry.expr = newExpr;
+    entry.expr = r.expr;
+    if (r.type === 'polar') entry.rhs = r.expr.replace(/^r\s*=/i, '');
     entry.f = p.f;
     entry.refs = p.refs;
     entry.params = p.params;
     entry.params.forEach(k => { if (entry.pr[k] === undefined) entry.pr[k] = 1; });
-    board.update();
+    if (r.type === 'implicit') entry.build(); else board.update();
+  }
+
+  function update2DExpr(entry, newExpr) {
+    const others = fns.filter(o => o !== entry).map(o => o.name);
+    reparseEntry(entry, newExpr, others);
+  }
+
+  function removeEntryObjects(o) {
+    (o.curves || [o.curve]).forEach(c => { if (c) { try { board.removeObject(c); } catch (e) { /* ignore */ } } });
   }
 
   function remove2D(id) {
     const i = fns.findIndex(o => o.id === id);
     if (i < 0) return;
-    board.removeObject(fns[i].curve);
+    removeEntryObjects(fns[i]);
     fns.splice(i, 1);
     if (selectedId === id) selectedId = fns.length ? fns[fns.length - 1].id : null;
     renderFnList();
@@ -293,13 +512,15 @@ const MathLab = (() => {
   function addExpr(expr) {
     expr = (expr || '').replace(/\s+/g, ' ').trim();
     if (!expr) throw new Error('请输入表达式');
-    const { is3D } = parseExpr(expr, fns.map(o => o.name));
-    if (is3D) {
+    const r = routeExpr(expr, fns.map(o => o.name));
+    if (r.type === 'fn3d') {
       setMode('3d');
-      add3D(expr);
+      add3D(r.expr);
     } else {
       if (mode === '3d') setMode('2d');
-      add2D(expr);
+      if (r.type === 'fn') addFn(r.expr);
+      else if (r.type === 'polar') addPolar(r.expr);
+      else addImplicit(r.expr);
     }
   }
 
@@ -345,7 +566,10 @@ const MathLab = (() => {
     const head = document.createElement('div');
     head.className = 'inspect-head';
     head.innerHTML = `<span class="sw" style="background:${entry.color || '#9b59b6'}"></span>` +
-      `<span class="fx">${is3 ? 'z = F(x, y)' : 'y = ' + esc(entry.name) + '(x)'}</span>`;
+      `<span class="fx">${is3 ? 'z = F(x, y)' :
+        entry.type === 'implicit' ? esc(entry.name) + '：F(x, y) = 0' :
+        entry.type === 'polar' ? 'r = r(θ)' :
+        'y = ' + esc(entry.name) + '(x)'}</span>`;
     box.appendChild(head);
     // 表达式编辑
     const er = document.createElement('div');
@@ -376,7 +600,7 @@ const MathLab = (() => {
       box.appendChild(t);
       const onChange = is3
         ? () => entry.params.forEach(k => surf.setParam(k, entry.pr[k]))
-        : () => board.update();
+        : () => { if (entry.type === 'implicit') entry.build(); else board.update(); };
       entry.params.forEach(k => paramRow(box, entry, k, onChange));
     } else {
       const t = document.createElement('div');
@@ -391,6 +615,20 @@ const MathLab = (() => {
       box.appendChild(tip);
       return;
     }
+    const setStyle = attr => {
+      (entry.curves || [entry.curve]).forEach(c => c && c.setAttribute(attr));
+    };
+    if (entry.type === 'implicit') {
+      const tip = document.createElement('div');
+      tip.className = 'tip-3d';
+      tip.textContent = '隐函数曲线随视图平移缩放自动重算；参数变化即时生效。';
+      box.appendChild(tip);
+    } else if (entry.type === 'polar') {
+      const tip = document.createElement('div');
+      tip.className = 'tip-3d';
+      tip.textContent = '极坐标曲线 θ 取 0 ~ 8π；θ 可以直接写成 t。';
+      box.appendChild(tip);
+    }
     // 颜色 / 显示 / 删除
     const cr = document.createElement('div');
     cr.className = 'inspect-row';
@@ -398,13 +636,13 @@ const MathLab = (() => {
       `<label class="check-line"><input type="checkbox" ${entry.visible ? 'checked' : ''}>显示</label>`;
     cr.querySelector('input[type=color]').addEventListener('input', e => {
       entry.color = e.target.value;
-      entry.curve.setAttribute({ strokeColor: entry.color });
+      setStyle({ strokeColor: entry.color });
       renderFnList();
       renderInspector();
     });
     cr.querySelector('input[type=checkbox]').addEventListener('change', e => {
       entry.visible = e.target.checked;
-      entry.curve.setAttribute({ visible: entry.visible });
+      setStyle({ visible: entry.visible });
     });
     box.appendChild(cr);
     const del = document.createElement('button');
@@ -427,10 +665,13 @@ const MathLab = (() => {
       return;
     }
     fns.forEach(o => {
+      const label = o.type === 'implicit' ? o.name + ': ' + o.expr
+        : o.type === 'polar' ? 'r(θ) = ' + o.rhs
+        : o.name + '(x) = ' + o.expr;
       const row = document.createElement('div');
       row.className = 'fn-item' + (o.id === selectedId ? ' sel' : '') + (o.visible ? '' : ' off');
       row.innerHTML = `<span class="sw" style="background:${o.color}"></span>` +
-        `<span class="fx" title="${esc(o.expr)}">${esc(o.name)}(x) = ${esc(o.expr)}</span>` +
+        `<span class="fx" title="${esc(label)}">${esc(label)}</span>` +
         `<button class="del" title="删除">✕</button>`;
       row.addEventListener('click', e => {
         if (e.target.classList.contains('del')) { remove2D(o.id); return; }
@@ -625,6 +866,129 @@ const MathLab = (() => {
       });
       return () => { stop(); JXG.JSXGraph.freeBoard(b); };
     },
+    vfield(div, bar) {
+      const b = JXG.JSXGraph.initBoard(div, {
+        boundingbox: [-5, 4, 5, -4], axis: true, showCopyright: false, showNavigation: false,
+        keepaspectratio: true, pan: { enabled: false }, zoom: { wheel: true, needShift: false }
+      });
+      let pExpr = '-y', qExpr = 'x';
+      let P = null, Q = null;
+      let arrows = [], traces = [];
+      function compile() {
+        P = parseExpr(pExpr, [], { vars: ['x', 'y'] }).f;
+        Q = parseExpr(qExpr, [], { vars: ['x', 'y'] }).f;
+      }
+      function F(x, y) {
+        try {
+          const u = P(null, x, y), v = Q(null, x, y);
+          return (typeof u === 'number' && typeof v === 'number' && isFinite(u) && isFinite(v)) ? [u, v] : null;
+        } catch (e) { return null; }
+      }
+      // 颜色随模长从蓝到红
+      const fieldColor = m => `hsl(${Math.round(220 - 220 * Math.min(1, m / 3))},72%,${Math.round(58 - 14 * Math.min(1, m / 3))}%)`;
+      function drawArrows() {
+        arrows.forEach(a => { try { b.removeObject(a); } catch (e) { /* ignore */ } });
+        arrows = [];
+        const bb = b.getBoundingBox();
+        const x0 = bb[0], y1 = bb[1], x1 = bb[2], y0 = bb[3];
+        const nx = 17, ny = Math.max(6, Math.round(nx * (y1 - y0) / (x1 - x0)));
+        const dx = (x1 - x0) / nx, dy = (y1 - y0) / ny;
+        const len = Math.min(dx, dy) * 0.44;
+        for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+          const x = x0 + (i + 0.5) * dx, y = y0 + (j + 0.5) * dy;
+          const f = F(x, y);
+          if (!f) continue;
+          const m = Math.hypot(f[0], f[1]);
+          if (m < 1e-9) continue;
+          arrows.push(b.create('segment', [[x, y], [x + f[0] / m * len, y + f[1] / m * len]], {
+            strokeColor: fieldColor(m), strokeWidth: 1.7,
+            lastArrow: { type: 2, size: 5 }, highlight: false, fixed: true
+          }));
+        }
+      }
+      // 从 (x,y) 出发沿单位化场方向 RK4 积分，dir=±1 表示顺/逆场方向
+      function halfTrace(x, y, dir, ext) {
+        const xs = [], ys = [];
+        let px = x, py = y;
+        const step = 0.05;
+        const slope = (ax, ay) => {
+          const f = F(ax, ay);
+          if (!f) return null;
+          const m = Math.hypot(f[0], f[1]);
+          if (m < 1e-9) return null;
+          return [dir * f[0] / m, dir * f[1] / m];
+        };
+        for (let n = 0; n < 900; n++) {
+          xs.push(px); ys.push(py);
+          const k1 = slope(px, py); if (!k1) break;
+          const k2 = slope(px + step / 2 * k1[0], py + step / 2 * k1[1]); if (!k2) break;
+          const k3 = slope(px + step / 2 * k2[0], py + step / 2 * k2[1]); if (!k3) break;
+          const k4 = slope(px + step * k3[0], py + step * k3[1]); if (!k4) break;
+          px += step / 6 * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]);
+          py += step / 6 * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]);
+          if (Math.abs(px - x) > ext[0] || Math.abs(py - y) > ext[1]) break;
+        }
+        return [xs, ys];
+      }
+      function drawTrace(x, y) {
+        const bb = b.getBoundingBox();
+        const ext = [Math.abs(bb[2] - bb[0]) * 0.9, Math.abs(bb[1] - bb[3]) * 0.9];
+        const [xf, yf] = halfTrace(x, y, 1, ext);
+        const [xb, yb] = halfTrace(x, y, -1, ext);
+        if (traces.length >= 6) {
+          const old = traces.shift();
+          try { b.removeObject(old.point); b.removeObject(old.curve); } catch (e) { /* ignore */ }
+        }
+        const pt = b.create('point', [x, y], { size: 2.5, fillColor: '#e05656', strokeColor: '#e05656', name: '', fixed: true });
+        const crv = b.create('curve', [xb.reverse().concat(xf), yb.reverse().concat(yf)],
+          { strokeColor: '#e05656', strokeWidth: 2.2, highlight: false });
+        traces.push({ point: pt, curve: crv });
+      }
+      compile();
+      drawArrows();
+      b.on('down', e => {
+        const pos = b.getMousePosition(e || window.event);
+        if (!pos) return;
+        const c = new JXG.Coords(JXG.COORDS_BY_SCREEN, pos, b);
+        drawTrace(c.usrCoords[1], c.usrCoords[2]);
+      });
+      // 缩放后按新视野重排箭头（合帧 + 屏蔽重建期间触发，防止循环）
+      let at = false;
+      b.on('update', () => {
+        if (at) return;
+        at = true;
+        requestAnimationFrame(() => { drawArrows(); at = false; });
+      });
+      bar.innerHTML = `
+        <div class="caption"><b>向量场</b>：每个箭头表示向量 (P, Q) 在该点的方向与大小（颜色越红模长越大）。<b>点击图面</b>任意位置释放粒子，红色轨迹即流线（可点 6 条）。</div>
+        <div class="btn-row">
+          <label class="vf-line">P(x,y) <input id="vf-p" type="text" value="${esc(pExpr)}"></label>
+          <label class="vf-line">Q(x,y) <input id="vf-q" type="text" value="${esc(qExpr)}"></label>
+          <button id="vf-apply" class="btn small primary">应用</button>
+          <button id="vf-clear" class="btn small">清除流线</button>
+          <span id="vf-err" class="inspect-err"></span>
+        </div>
+        <div class="caption">试试：旋转场 P=-y, Q=x ｜ 辐射场 P=x, Q=y ｜ 剪切场 P=0, Q=x ｜ 波动场 P=sin(y), Q=sin(x)</div>`;
+      bar.querySelector('#vf-apply').addEventListener('click', () => {
+        const err = bar.querySelector('#vf-err');
+        try {
+          const np = parseExpr(bar.querySelector('#vf-p').value.trim(), [], { vars: ['x', 'y'] });
+          const nq = parseExpr(bar.querySelector('#vf-q').value.trim(), [], { vars: ['x', 'y'] });
+          pExpr = bar.querySelector('#vf-p').value.trim();
+          qExpr = bar.querySelector('#vf-q').value.trim();
+          P = np.f; Q = nq.f;
+          err.textContent = '';
+          traces.forEach(t => { try { b.removeObject(t.point); b.removeObject(t.curve); } catch (e) { /* ignore */ } });
+          traces = [];
+          drawArrows();
+        } catch (e) { err.textContent = e.message; }
+      });
+      bar.querySelector('#vf-clear').addEventListener('click', () => {
+        traces.forEach(t => { try { b.removeObject(t.point); b.removeObject(t.curve); } catch (e) { /* ignore */ } });
+        traces = [];
+      });
+      return () => JXG.JSXGraph.freeBoard(b);
+    },
     dft(divWrap, bar) {
       // 双画布：时域 + 频域
       divWrap.style.display = 'flex';
@@ -710,7 +1074,7 @@ const MathLab = (() => {
     mode = 'demo';
     renderFnList();
     renderInspector();
-    const build = ({ deriv: Demos.deriv, integral: Demos.integral, rose: Demos.rose, lissajous: Demos.lissajous, cycloid: Demos.cycloid }[id]
+    const build = ({ deriv: Demos.deriv, integral: Demos.integral, rose: Demos.rose, lissajous: Demos.lissajous, cycloid: Demos.cycloid, vfield: Demos.vfield }[id]
       || id.startsWith('taylor') && Demos.taylor(id.slice(7))
       || id.startsWith('fourier') && Demos.fourier(id.slice(8))
       || Demos.dft);
@@ -769,7 +1133,7 @@ const MathLab = (() => {
     setMode('2d');
     ensureBoard();
     setCategory('basic');
-    try { add2D('k*x + b'); } catch (e) { /* ignore */ }
+    try { addFn('k*x + b'); } catch (e) { /* ignore */ }
 
     $('#btn-add-fn').addEventListener('click', () => {
       try {
@@ -801,7 +1165,7 @@ const MathLab = (() => {
 
   function clearAll() {
     if (mode === 'demo') closeDemo();
-    fns.forEach(o => board.removeObject(o.curve));
+    fns.forEach(removeEntryObjects);
     fns = []; fn3d = null; colorIdx = 0; selectedId = null;
     surf.setFunction(null);
     setMode('2d');

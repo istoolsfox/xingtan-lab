@@ -42,6 +42,7 @@
       <button class="nav-item sub" data-page="math" data-cat="fourier">⑥ 傅里叶</button>
       <button class="nav-item sub" data-page="math" data-cat="surface">⑦ 三维曲面</button>
       <button class="nav-item sub" data-page="math" data-cat="param">⑧ 参数曲线 · 极坐标</button>
+      <button class="nav-item sub" data-page="math" data-cat="conic">⑨ 解析几何 · 向量场</button>
       <button class="nav-item" data-page="geogebra">🧮 GeoGebra 画板</button>
       <button class="nav-item" data-page="physics">⚛ 物理实验</button>
       <button class="nav-item" data-page="chem">🧬 化学反应</button>
@@ -73,7 +74,7 @@
       <div class="math-toolbar">
         <div class="expr-line">
           <span class="fx-label" id="expr-label">f(x) =</span>
-          <input id="expr-input" type="text" placeholder="输入表达式，如 a*x^2+b*x+c；可嵌套已有函数如 sin(f(x))；含 y 自动三维" maxlength="80">
+          <input id="expr-input" type="text" placeholder="y=f(x)；含 = 画隐函数如 x^2+y^2=25；r=... 极坐标；含 y 的 z=... 自动三维" maxlength="80">
           <button id="btn-add-fn" class="btn primary small">添加</button>
           <button id="btn-clear-fn" class="btn small">清空</button>
           <button id="btn-back-fn" class="btn small hidden">← 返回函数列表</button>
