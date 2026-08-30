@@ -33,7 +33,7 @@
       <button class="nav-item" data-page="dashboard">🏠 工作台</button>
 
       <div class="nav-group">学科模块</div>
-      <button class="nav-item" data-page="chinese">📖 语文<span class="nav-soon">建设中</span></button>
+      <button class="nav-item" data-page="chinese">📖 语文</button>
 
       <div class="nav-group">数学 · 小学与初中</div>
       <button class="nav-item" data-page="math" data-cat="primary">① 变量与规律<span class="stage">小学</span></button>
@@ -262,11 +262,59 @@
       </div>
     </section>
 
-    <!-- 语文（建设中） -->
+    <!-- 语文 -->
     <section id="page-chinese" class="page hidden">
-      <h1 class="page-title">语文模块 <span class="badge-dev">建设中</span></h1>
-      <p class="page-sub">按「一个学科一个模块」的节奏开发：古诗文意境、课文脉络图、写作框架等可视化演示将陆续上线。</p>
-      <div class="mine-empty">当前主攻数学模块，语文模块随后开工。</div>
+      <h1 class="page-title">语文模块</h1>
+      <div class="chem-tabs">
+        <button class="cn-tab active" data-cn-tab="poem">🌉 古诗文意境</button>
+        <button class="cn-tab" data-cn-tab="outline">🧩 课文脉络图</button>
+        <button class="cn-tab" data-cn-tab="writing">✍️ 写作框架</button>
+      </div>
+      <div id="cn-pane-poem" class="chem-pane">
+        <div class="lab-body">
+          <aside class="side">
+            <h3>古诗文库</h3>
+            <div id="cn-poem-list" class="template-list"></div>
+            <div class="note-box">
+              <strong>诗中有画</strong><br>左侧选诗，上方 canvas 自动绘制意境场景，<br>下方逐句注释与译文。<br>
+              <span class="muted">新增诗文只需在 chinese.js 的 POEMS 里加一条数据。</span>
+            </div>
+            <button id="chinese-save" class="btn small primary">💾 保存当前演示</button>
+          </aside>
+          <div class="lab-stage col">
+            <div class="panel-title" id="cn-poem-head"></div>
+            <canvas id="cn-scene" width="900" height="460"></canvas>
+            <div id="cn-poem-body" class="cn-body"></div>
+          </div>
+        </div>
+      </div>
+      <div id="cn-pane-outline" class="chem-pane hidden">
+        <div class="lab-body">
+          <aside class="side">
+            <h3>课文脉络</h3>
+            <div id="cn-outline-list" class="template-list"></div>
+            <div class="note-box">
+              <strong>结构即思维</strong><br>梳理文章线索与层次，读文先读骨架。
+            </div>
+          </aside>
+          <div class="lab-stage col">
+            <div class="panel-title" id="cn-outline-head"></div>
+            <div id="cn-outline-body" class="cn-body"></div>
+          </div>
+        </div>
+      </div>
+      <div id="cn-pane-writing" class="chem-pane hidden">
+        <div class="lab-body">
+          <aside class="side">
+            <h3>文体框架</h3>
+            <div class="note-box">
+              <strong>写作不是从段落开始</strong><br>先看结构骨架，再往骨架里填血肉。<br>
+              <span class="muted">按文体给出结构流程与每段的写作要点。</span>
+            </div>
+          </aside>
+          <div class="lab-stage col" id="cn-writing-list"></div>
+        </div>
+      </div>
     </section>
 
     <!-- 我的演示 -->
@@ -297,6 +345,7 @@
 <script src="vendor/math.min.js"></script>
 <script src="periodic.js"></script>
 <script src="mol3.js"></script>
+<script src="chinese.js"></script>
 <script src="chemistry.js"></script>
 <script src="physics.js"></script>
 <script src="surface3d.js"></script>

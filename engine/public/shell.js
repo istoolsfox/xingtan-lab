@@ -10,7 +10,7 @@
 
   let token = localStorage.getItem(TOKEN_KEY) || '';
   let me = null;
-  let inited = { math: false, physics: false, chem: false, geogebra: false };
+  let inited = { math: false, physics: false, chem: false, geogebra: false, chinese: false };
   let currentPage = 'dashboard';
   let ggbType = 'graphing';
   const GGB_TYPES = [
@@ -101,6 +101,7 @@
     inited.shell = true;
     $$('#nav .nav-item').forEach(b => b.addEventListener('click', () => gotoPage(b.dataset.page, b.dataset.cat)));
     $('#math-save').addEventListener('click', saveScene);
+    $('#chinese-save').addEventListener('click', saveScene);
     $('#dash-hello').textContent = '';
   }
 
@@ -117,6 +118,8 @@
       if (!inited.physics) { initPhysics(); inited.physics = true; }
     } else if (page === 'chem') {
       if (!inited.chem) { initChem(); inited.chem = true; }
+    } else if (page === 'chinese') {
+      if (!inited.chinese) { Chinese.init(); inited.chinese = true; }
     } else if (page === 'geogebra') {
       if (!inited.geogebra) { initGeoGebra(); inited.geogebra = true; }
       renderGgbMine();
@@ -297,6 +300,11 @@
       const r = ChemEngine.currentReaction();
       return { kind: 'chem', subject: '化学', reaction: r.id, title: r.title };
     }
+    if (currentPage === 'chinese') {
+      const st = Chinese.state();
+      const poem = (st.poem && document.querySelector(`#cn-poem-list .template-item.active .t`) || {}).textContent;
+      return { kind: 'chinese', subject: '语文', tab: st.tab, poem: st.poem, title: (st.tab === 'poem' && poem ? poem : '语文演示') };
+    }
     return null;
   }
 
@@ -349,10 +357,11 @@
     const meta = s.kind === 'physics'
       ? Object.values(s.params || {}).join(' / ')
       : s.kind === 'math' ? (s.exprs || []).join(' ｜ ').slice(0, 70)
+      : s.kind === 'chinese' ? '语文 · ' + (s.tab === 'poem' ? '古诗文' : s.tab === 'outline' ? '课文脉络' : '写作框架')
         : s.kind === 'geogebra' ? ggbTypeName(s.appType)
           : (s.reaction || '');
     card.innerHTML = `
-      <span class="subj">${esc(s.subject || ({ math: '数学', physics: '物理', chem: '化学', geogebra: 'GeoGebra' }[s.kind] || ''))}</span>
+      <span class="subj">${esc(s.subject || ({ math: '数学', physics: '物理', chem: '化学', chinese: '语文', geogebra: 'GeoGebra' }[s.kind] || ''))}</span>
       <div class="t">${esc(s.title)}</div>
       <div class="m">${esc(meta || '')}</div>
       <div class="ops">
@@ -403,6 +412,9 @@
     } else if (s.kind === 'chem') {
       gotoPage('chem');
       setTimeout(() => selectReaction(s.reaction), 80);
+    } else if (s.kind === 'chinese') {
+      gotoPage('chinese');
+      setTimeout(() => Chinese.applyScene(s), 80);
     } else if (s.kind === 'geogebra') {
       gotoPage('geogebra');
       setTimeout(() => {
