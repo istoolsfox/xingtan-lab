@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>杏坛学科实验平台</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsxgraph@1.10.1/distrib/jsxgraph.css">
+<link rel="stylesheet" href="vendor/jsxgraph.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -167,26 +167,77 @@
     <!-- 化学 -->
     <section id="page-chem" class="page hidden">
       <h1 class="page-title">化学反应 · 宏观与微观 <span class="badge-dev">拓展模块</span></h1>
-      <div class="lab-body">
-        <aside class="side">
-          <h3>反应演示</h3>
-          <div id="chem-reactions" class="template-list"></div>
-          <div class="note-box">
-            <strong>双视图联动</strong><br>上：宏观实验现象<br>下：微观分子变化<br>同一时间轴驱动。
+      <div class="chem-tabs">
+        <button class="chem-tab active" data-chem-tab="reaction">🧪 反应演示</button>
+        <button class="chem-tab" data-chem-tab="periodic">🧭 元素周期表</button>
+        <button class="chem-tab" data-chem-tab="mol3">🔬 分子 3D</button>
+      </div>
+      <div id="chem-pane-reaction" class="chem-pane">
+        <div class="lab-body">
+          <aside class="side">
+            <h3>反应演示</h3>
+            <div id="chem-reactions" class="template-list"></div>
+            <div class="note-box">
+              <strong>双视图联动</strong><br>上：宏观实验现象<br>下：微观分子变化<br>同一时间轴驱动。
+            </div>
+            <button id="chem-save" class="btn small primary">💾 保存当前演示</button>
+          </aside>
+          <div class="lab-stage col">
+            <div class="panel-title" id="chem-equation"></div>
+            <canvas id="chem-macro" width="900" height="290"></canvas>
+            <canvas id="chem-micro" width="900" height="290"></canvas>
+            <div class="playback">
+              <button id="chem-prev" class="btn small">⏮ 上一步</button>
+              <button id="chem-play" class="btn small primary">▶ 播放</button>
+              <button id="chem-next" class="btn small">⏭ 下一步</button>
+              <div id="chem-dots" class="dots"></div>
+            </div>
+            <div id="chem-caption" class="caption"></div>
           </div>
-          <button id="chem-save" class="btn small primary">💾 保存当前演示</button>
-        </aside>
-        <div class="lab-stage col">
-          <div class="panel-title" id="chem-equation"></div>
-          <canvas id="chem-macro" width="900" height="290"></canvas>
-          <canvas id="chem-micro" width="900" height="290"></canvas>
-          <div class="playback">
-            <button id="chem-prev" class="btn small">⏮ 上一步</button>
-            <button id="chem-play" class="btn small primary">▶ 播放</button>
-            <button id="chem-next" class="btn small">⏭ 下一步</button>
-            <div id="chem-dots" class="dots"></div>
+        </div>
+      </div>
+      <div id="chem-pane-periodic" class="chem-pane hidden">
+        <div class="lab-body">
+          <aside class="side">
+            <h3>元素周期表</h3>
+            <div class="note-box">
+              <strong>118 种元素</strong><br>点击任意元素查看原子量、电子排布、电负性、熔沸点等性质。<br>
+              <span class="muted">数据：Periodic-Table-JSON（CC-BY-SA 3.0），中文名内置。</span>
+            </div>
+            <div id="pt-legend" class="pt-legend"></div>
+          </aside>
+          <div class="lab-stage col pt-wrap">
+            <div id="pt-grid"></div>
+            <div id="pt-detail" class="pt-detail"></div>
           </div>
-          <div id="chem-caption" class="caption"></div>
+        </div>
+      </div>
+      <div id="chem-pane-mol3" class="chem-pane hidden">
+        <div class="lab-body">
+          <aside class="side">
+            <h3>选择分子</h3>
+            <div id="mol3-list" class="mol3-list"></div>
+            <h3>自定义分子</h3>
+            <div class="mol3-custom">
+              <input id="mol3-cid" type="text" placeholder="输入 PubChem CID" maxlength="10">
+              <button id="mol3-go" class="btn small">查看</button>
+            </div>
+            <h3>模型样式</h3>
+            <select id="mol3-style" class="mol3-style">
+              <option value="stick" selected>球棍模型</option>
+              <option value="sphere">空间填充模型</option>
+              <option value="line">键线式</option>
+            </select>
+            <div class="note-box">
+              <strong>分子 3D 结构</strong><br>引擎 3Dmol.js（BSD，本地内置）；结构数据从 PubChem 在线获取（需联网）。<br>
+              <span class="muted">拖拽旋转 · 滚轮缩放</span>
+            </div>
+          </aside>
+          <div class="lab-stage col">
+            <div class="panel-title" id="mol3-name">水 · H₂O</div>
+            <div id="mol3-view" class="mol3-view"></div>
+            <div id="mol3-tip" class="caption"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -241,9 +292,11 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jsxgraph@1.10.1/distrib/jsxgraphcore.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mathjs@13.0.0/lib/browser/math.min.js"></script>
+<script src="vendor/matter.min.js"></script>
+<script src="vendor/jsxgraph.min.js"></script>
+<script src="vendor/math.min.js"></script>
+<script src="periodic.js"></script>
+<script src="mol3.js"></script>
 <script src="chemistry.js"></script>
 <script src="physics.js"></script>
 <script src="surface3d.js"></script>

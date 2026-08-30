@@ -37,11 +37,16 @@
 
 ### ⚛ 物理实验
 
-matter.js 驱动、真实单位换算（PPM=42）：自由落体 vs 平抛、斜面滑块、碰撞、单摆；速度矢量、运动轨迹、重力 g 可调，实时 HUD 显示物理量。
+matter.js 驱动、真实单位换算（PPM=42）：自由落体 vs 平抛、斜面滑块、碰撞、单摆；速度矢量、运动轨迹、重力 g 可调，实时 HUD 显示物理量。**新增「光的折射与全反射」**：调入射角与介质折射率（空气/水/玻璃/钻石），实时画入射/反射/折射光线，标斯涅尔定律数值与全反射临界角（光线追踪思路参考开源项目 ray-optics）。
 
 ### 🧬 化学反应 · 宏观与微观
 
 自研分子反应引擎：**上方宏观实验现象，下方微观分子变化，同一时间轴联动**。内置初中重点反应：水的电解（气泡 2:1、液面变化、分子拆分重组）、氢气燃烧、木炭燃烧（白光 + 石灰水变浑浊）、甲烷燃烧（蓝色火焰 + 水珠 + 浑浊）、铁与硫酸铜置换（红色铜析出、溶液变浅绿）——原子运动可见质量守恒；新增反应只需写 JSON 阶段定义。
+
+化学页另有两个板块（子标签切换）：
+
+- **🧭 元素周期表**：118 种元素交互式周期表，点元素看中文名、原子量、电子排布、电负性、熔沸点等（数据 [Periodic-Table-JSON](https://github.com/Bowserinator/Periodic-Table-JSON)，CC-BY-SA 3.0，本地内置）
+- **🔬 分子 3D**：球棍/空间填充/键线式三种模型查看水、CO₂、甲烷、苯、乙醇、葡萄糖等分子结构，支持输入任意 PubChem CID（引擎 [3Dmol.js](https://3dmol.org)，BSD，本地内置；结构数据来自 PubChem 在线数据库）
 
 ### 📁 账号与数据
 
@@ -60,7 +65,7 @@ node server.js        # 或直接双击 start.bat
 
 浏览器访问 <http://localhost:6174>，注册一个账号即可开始。
 
-> GeoGebra 画板从官方 CDN 加载，首次使用需联网。旧版 AI 课件原型（`prototype/`，GLM 驱动）已归档，如需使用请复制 `prototype/config.example.json` 为 `config.json` 并填入自己的密钥（config.json 不会被提交）。
+> 所有第三方库（JSXGraph、matter.js、math.js、3Dmol.js）均已本地化到 `engine/public/vendor/`，**除 GeoGebra 画板与分子结构数据（PubChem）外无需联网**。GeoGebra 画板从官方 CDN 加载。旧版 AI 课件原型（`prototype/`，GLM 驱动）已归档，如需使用请复制 `prototype/config.example.json` 为 `config.json` 并填入自己的密钥（config.json 不会被提交）。
 
 ## 🏗️ 架构
 
@@ -112,4 +117,4 @@ node --test engine/test/engine.test.js engine/test/api.test.js
 
 ## 📄 许可
 
-教学引擎代码采用 MIT 许可。内嵌 GeoGebra 由 [GeoGebra 官方条款](https://www.geogebra.org/license) 授权（教育用途免费）；JSXGraph（LGPL）、matter.js（MIT）遵循各自原许可证。
+教学引擎代码采用 MIT 许可。内嵌 GeoGebra 由 [GeoGebra 官方条款](https://www.geogebra.org/license) 授权（教育用途免费）。`vendor/` 内第三方库遵循各自原许可证：JSXGraph（LGPL/MIT 双许可）、matter.js（MIT）、math.js（Apache-2.0）、3Dmol.js（BSD）；元素数据来自 [Periodic-Table-JSON](https://github.com/Bowserinator/Periodic-Table-JSON)（CC-BY-SA 3.0）；光学演示的交互设计参考开源项目 [ray-optics](https://github.com/ricktu288/ray-optics)（Apache-2.0）。

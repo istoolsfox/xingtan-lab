@@ -150,10 +150,89 @@ const Physics = (() => {
         };
         return { bodies: [bob], tracked: [bob] };
       }
+    },
+    {
+      id: 'optics-refraction',
+      title: '光的折射与全反射',
+      desc: '调入射角与介质折射率，看折射线偏折与全反射临界角（斯涅尔定律）',
+      params: [
+        { key: 'ang', label: '入射角 θ₁ (°)', min: 0, max: 88, step: 1, value: 40 },
+        { key: 'n1', label: '上介质折射率 n₁', min: 1, max: 2.5, step: 0.01, value: 1 },
+        { key: 'n2', label: '下介质折射率 n₂', min: 1, max: 2.5, step: 0.01, value: 1.33 }
+      ],
+      setup(p) {
+        // 无刚体：纯几何光学画布（折射算法参考 ray-optics 的界面斯涅尔定律处理）
+        const cx = W / 2, cy = H / 2, L = 300;
+        const toRad = d => d * Math.PI / 180;
+        drawExtra = ctx2 => {
+          // 两种介质
+          ctx2.fillStyle = `rgba(120,170,230,${0.10 + p.n1 * 0.05})`;
+          ctx2.fillRect(0, 0, W, cy);
+          ctx2.fillStyle = `rgba(70,130,200,${0.12 + p.n2 * 0.08})`;
+          ctx2.fillRect(0, cy, W, H - cy);
+          ctx2.strokeStyle = '#5b6575'; ctx2.lineWidth = 2;
+          ctx2.beginPath(); ctx2.moveTo(0, cy); ctx2.lineTo(W, cy); ctx2.stroke();
+          // 法线（虚线）
+          ctx2.setLineDash([6, 6]); ctx2.strokeStyle = '#9aa5b5'; ctx2.lineWidth = 1.5;
+          ctx2.beginPath(); ctx2.moveTo(cx, 40); ctx2.lineTo(cx, H - 40); ctx2.stroke();
+          ctx2.setLineDash([]);
+          const th1 = toRad(p.ang);
+          const sin2 = p.n1 * Math.sin(th1) / p.n2;
+          const tir = sin2 > 1;                       // 全反射
+          const th2 = tir ? null : Math.asin(sin2);
+          const ray = (dx, dy, color, w) => {
+            ctx2.strokeStyle = color; ctx2.lineWidth = w || 2.5;
+            ctx2.beginPath(); ctx2.moveTo(cx, cy); ctx2.lineTo(cx + dx, cy + dy); ctx2.stroke();
+          };
+          // 入射线（左上 → O）
+          ctx2.strokeStyle = '#e05656'; ctx2.lineWidth = 2.5;
+          ctx2.beginPath(); ctx2.moveTo(cx - L * Math.sin(th1), cy - L * Math.cos(th1)); ctx2.lineTo(cx, cy); ctx2.stroke();
+          // 反射线（右上）
+          ray(L * Math.sin(th1), -L * Math.cos(th1), '#e67e22');
+          // 折射线（右下）或全反射标注
+          if (!tir) ray(L * Math.sin(th2), L * Math.cos(th2), '#2fae6e');
+          // 入射点
+          ctx2.fillStyle = '#1c2430';
+          ctx2.beginPath(); ctx2.arc(cx, cy, 5, 0, Math.PI * 2); ctx2.fill();
+          // 角度弧与标注
+          ctx2.strokeStyle = '#e05656'; ctx2.lineWidth = 1.5;
+          ctx2.beginPath(); ctx2.arc(cx, cy, 46, -Math.PI / 2 - th1, -Math.PI / 2); ctx2.stroke();
+          ctx2.fillStyle = '#e05656'; ctx2.font = 'bold 13px sans-serif';
+          ctx2.fillText(`θ₁ = ${p.ang}°`, cx - 92, cy - 60);
+          if (!tir) {
+            ctx2.strokeStyle = '#2fae6e';
+            ctx2.beginPath(); ctx2.arc(cx, cy, 60, Math.PI / 2, Math.PI / 2 + th2); ctx2.stroke();
+            ctx2.fillStyle = '#2fae6e';
+            ctx2.fillText(`θ₂ = ${(th2 * 180 / Math.PI).toFixed(1)}°`, cx + 14, cy + 92);
+          } else {
+            const thc = Math.asin(p.n2 / p.n1) * 180 / Math.PI;
+            ctx2.fillStyle = '#c0392b'; ctx2.font = 'bold 15px sans-serif';
+            ctx2.fillText('全反射（无折射光）', cx + 18, cy + 60);
+            ctx2.font = '12px sans-serif';
+            ctx2.fillText(`临界角 θc = asin(n₂/n₁) = ${thc.toFixed(1)}°`, cx + 18, cy + 80);
+          }
+          // 介质标注
+          ctx2.fillStyle = '#5b6575'; ctx2.font = '12px sans-serif';
+          ctx2.fillText(`n₁ = ${p.n1.toFixed(2)}（空气=1.00 · 水=1.33 · 玻璃=1.50 · 钻石=2.42）`, 20, 26);
+          ctx2.fillText(`n₂ = ${p.n2.toFixed(2)}`, 20, H - 14);
+          ctx2.textAlign = 'center'; ctx2.font = 'bold 13px sans-serif'; ctx2.fillStyle = '#4a5261';
+          ctx2.fillText(`n₁·sinθ₁ = ${(p.n1 * Math.sin(th1)).toFixed(3)}　　n₂·sinθ₂ = ${tir ? '—（全反射）' : (p.n2 * sin2).toFixed(3)}`, cx, cy - 12 < 40 ? cy - 12 : 40);
+          ctx2.textAlign = 'left';
+        };
+        hudFn = () => {
+          const th1 = toRad(p.ang);
+          const sin2 = p.n1 * Math.sin(th1) / p.n2;
+          if (sin2 > 1) {
+            const thc = Math.asin(p.n2 / p.n1) * 180 / Math.PI;
+            return `θ₁ = ${p.ang}° > 临界角 θc = ${thc.toFixed(1)}°\nn₁·sinθ₁ = ${(p.n1 * Math.sin(th1)).toFixed(3)} > n₂\n发生全反射：全部能量反射回上介质`;
+          }
+          const th2 = Math.asin(sin2) * 180 / Math.PI;
+          return `斯涅尔定律：n₁·sinθ₁ = n₂·sinθ₂\n${p.n1.toFixed(2)}·sin(${p.ang}°) = ${p.n2.toFixed(2)}·sin(${th2.toFixed(1)}°)\n折射角 θ₂ = ${th2.toFixed(1)}°`;
+        };
+        return { bodies: [], tracked: [] };
+      }
     }
   ];
-
-  let drawExtra = null;
 
   // ---------- 渲染 ----------
   function render() {

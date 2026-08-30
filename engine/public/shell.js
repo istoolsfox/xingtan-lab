@@ -472,7 +472,18 @@
   }
 
   // ================= 化学页 =================
+  const chemInited = { periodic: false, mol3: false };
   function initChem() {
+    // 子标签：反应演示 | 元素周期表 | 分子 3D（惰性初始化各自面板）
+    $$('#page-chem .chem-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        $$('#page-chem .chem-tab').forEach(t => t.classList.toggle('active', t === tab));
+        const name = tab.dataset.chemTab;
+        $$('#page-chem .chem-pane').forEach(p => p.classList.toggle('hidden', p.id !== 'chem-pane-' + name));
+        if (name === 'periodic' && !chemInited.periodic) { Periodic.init(); chemInited.periodic = true; }
+        if (name === 'mol3' && !chemInited.mol3) { Mol3.init(); chemInited.mol3 = true; }
+      });
+    });
     ChemEngine.init({
       macro: $('#chem-macro'),
       micro: $('#chem-micro'),

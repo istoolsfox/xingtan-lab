@@ -190,6 +190,54 @@ body {
   background: var(--accent-soft); border-radius: 8px; padding: 8px 10px; word-break: break-all; }
 .param-row .anim-btn { border: 0; background: none; cursor: pointer; font-size: 11px; color: var(--ink-2); width: 22px; }
 .param-row .anim-btn:hover { color: var(--accent); }
+
+/* 化学页子标签 */
+.chem-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.chem-tab {
+  border: 1px solid var(--line); background: #fff; border-radius: 8px;
+  padding: 7px 16px; cursor: pointer; font-size: 13.5px; color: var(--ink-2);
+}
+.chem-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+
+/* 元素周期表 */
+.pt-wrap { overflow: auto; }
+.pt-cell {
+  border: 1px solid rgba(0,0,0,.14); border-radius: 5px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 2px 0; min-height: 40px; font: inherit;
+}
+.pt-cell:hover { outline: 2px solid var(--accent); }
+.pt-cell.sel { outline: 2.5px solid var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.pt-num { font-size: 8.5px; color: var(--ink-2); align-self: flex-start; margin-left: 3px; }
+.pt-sym { font-weight: 700; font-size: 13px; color: #1c2430; line-height: 1.1; }
+.pt-zh { font-size: 9px; color: var(--ink-2); }
+.pt-lant { font-size: 11px; color: var(--ink-2); display: flex; align-items: center; }
+.pt-loading { grid-column: 1 / -1; padding: 30px; color: var(--ink-2); text-align: center; }
+.pt-detail { margin-top: 10px; background: var(--accent-soft); border-radius: 10px; padding: 14px; }
+.ptd-head { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; }
+.ptd-badge { width: 62px; height: 62px; border-radius: 10px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; border: 1px solid rgba(0,0,0,.12); }
+.ptd-num { font-size: 10px; color: var(--ink-2); align-self: flex-start; margin-left: 6px; }
+.ptd-sym { font-size: 22px; font-weight: 800; color: #1c2430; }
+.ptd-name { font-size: 19px; font-weight: 700; color: var(--ink); }
+.ptd-en { font-size: 12px; color: var(--ink-2); font-weight: 400; margin-left: 6px; }
+.ptd-cat { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; }
+.ptd-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px 16px; }
+.ptd-rows div { display: flex; justify-content: space-between; font-size: 12.5px; border-bottom: 1px dashed rgba(0,0,0,.08); padding: 3px 0; }
+.ptd-rows i { font-style: normal; color: var(--ink-2); }
+.ptd-rows b { font-weight: 600; color: var(--ink); font-family: Consolas, monospace; }
+.ptd-sum { margin-top: 8px; font-size: 12px; color: var(--ink-2); }
+.ptd-sum p { margin: 6px 0 0; line-height: 1.6; }
+.pt-legend { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 8px; }
+
+/* 分子 3D */
+.mol3-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.mol3-item { min-height: 46px; }
+.mol3-view { flex: 1; min-height: 420px; border-radius: 12px; border: 1px solid var(--line); position: relative; }
+.mol3-err { padding: 40px; color: var(--danger); text-align: center; }
+.mol3-custom { display: flex; gap: 6px; }
+.mol3-custom input { flex: 1; min-width: 0; padding: 6px 9px; border: 1px solid var(--line); border-radius: 7px; font: 12.5px Consolas, monospace; }
+.mol3-style { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px; font: inherit; font-size: 13px; }
 .tip-3d { font-size: 12px; color: var(--ink-2); margin-top: 8px; line-height: 1.7; }
 
 .fn-list { display: flex; flex-direction: column; gap: 4px; }
