@@ -213,7 +213,24 @@ const MathLab = (() => {
   const entryOf = id => fns.find(o => o.id === id);
 
   // ---------------- 2D ----------------
+  // 视图变化后的重建管线（rAF 合帧；重建期间屏蔽 update 事件，防止循环）
+  // 覆盖：隐函数等值线重算 + 普通函数按新视口无限延伸重采样（无限画布）
   let impQueued = false, impBuilding = false;
+  function scheduleViewRebuild() {
+    if (impBuilding || impQueued) return;
+    if (!fns.some(o => o.type === 'implicit' || o.type === 'fn')) return;
+    impQueued = true;
+    requestAnimationFrame(() => {
+      impBuilding = true;
+      try {
+        const bb = board.getBoundingBox();
+        fns.forEach(o => {
+          if (o.type === 'implicit') o.build();
+          else if (o.type === 'fn' && o.build) o.build(bb);
+        });
+      } finally { impBuilding = false; impQueued = false; }
+    });
+  }
   function ensureBoard() {
     if (!board) {
       board = JXG.JSXGraph.initBoard('plot2d', {
@@ -222,16 +239,7 @@ const MathLab = (() => {
         zoom: { wheel: true, needShift: false },
         showNavigation: false, keyboard: { enabled: false }
       });
-      // 平移/缩放后隐函数等值线按新视图重算（rAF 合帧；重建期间屏蔽再次触发，防止循环）
-      board.on('update', () => {
-        if (impBuilding || impQueued || !fns.some(o => o.type === 'implicit')) return;
-        impQueued = true;
-        requestAnimationFrame(() => {
-          impBuilding = true;
-          try { fns.forEach(o => { if (o.type === 'implicit') o.build(); }); }
-          finally { impBuilding = false; impQueued = false; }
-        });
-      });
+      board.on('update', scheduleViewRebuild);
     }
     return board;
   }
@@ -254,14 +262,23 @@ const MathLab = (() => {
     p.params.forEach(k => { pr[k] = 1; });
     const entry = baseEntry('fn', expr);
     entry.f = p.f; entry.params = p.params; entry.pr = pr; entry.refs = p.refs;
+    entry.width = 2.5; entry.dash = 0;
     entry.fn = x => {
       try {
         const v = entry.f(scope(), x, ...entry.params.map(k => entry.pr[k]));
         return typeof v === 'number' ? v : NaN;
       } catch (e) { return NaN; }
     };
-    entry.curve = ensureBoard().create('functiongraph', [entry.fn, -100, 100], { strokeColor: entry.color, strokeWidth: 2.5 });
-    entry.curve.on('down', () => { if (mode === '2d') selectFn(entry.id); });
+    // 无限画布：定义域跟随视口（左右各外扩 10%），平移/缩放时由视图管线重建
+    entry.build = bb => {
+      bb = bb || ensureBoard().getBoundingBox();
+      const m = (bb[2] - bb[0]) * 0.1;
+      if (entry.curve) { try { board.removeObject(entry.curve); } catch (e) { /* ignore */ } }
+      entry.curve = board.create('functiongraph', [entry.fn, bb[0] - m, bb[2] + m],
+        { strokeColor: entry.color, strokeWidth: entry.width, dash: entry.dash });
+      entry.curve.on('down', () => { if (mode === '2d') selectFn(entry.id); });
+    };
+    entry.build();
     return finishEntry(entry);
   }
 
@@ -273,6 +290,7 @@ const MathLab = (() => {
     p.params.forEach(k => { pr[k] = 1; });
     const entry = baseEntry('polar', expr, 'r');
     entry.rhs = rhs; entry.f = p.f; entry.params = p.params; entry.pr = pr; entry.refs = p.refs;
+    entry.width = 2.5; entry.dash = 0;
     entry.r = t => {
       try {
         const v = entry.f(scope(), t, ...entry.params.map(k => entry.pr[k]));
@@ -282,7 +300,7 @@ const MathLab = (() => {
     // t 覆盖 0~8π：玫瑰线 2π 足够闭合，螺线类也能看到足够多圈
     entry.curve = ensureBoard().create('curve',
       [t => entry.r(t) * Math.cos(t), t => entry.r(t) * Math.sin(t), 0, 8 * Math.PI],
-      { strokeColor: entry.color, strokeWidth: 2.5 });
+      { strokeColor: entry.color, strokeWidth: entry.width, dash: entry.dash });
     entry.curve.on('down', () => { if (mode === '2d') selectFn(entry.id); });
     return finishEntry(entry);
   }
@@ -373,7 +391,7 @@ const MathLab = (() => {
     if (entry.curves) entry.curves.forEach(c => { try { board.removeObject(c); } catch (e) { /* ignore */ } });
     entry.curves = joinSegments(segs).map(pts => {
       const c = board.create('curve', [pts.map(p => p[0]), pts.map(p => p[1])],
-        { strokeColor: entry.color, strokeWidth: 2.8, curveType: 'plot' });
+        { strokeColor: entry.color, strokeWidth: entry.width || 2.8, dash: entry.dash || 0, curveType: 'plot' });
       c.on('down', () => { if (mode === '2d') selectFn(entry.id); });
       return c;
     });
@@ -451,6 +469,10 @@ const MathLab = (() => {
   }
 
   function removeEntryObjects(o) {
+    if (o._anim) Object.values(o._anim).forEach(id => cancelAnimationFrame(id));
+    o._anim = null;
+    (o._marks || []).forEach(p => { try { board.removeObject(p); } catch (e) { /* ignore */ } });
+    o._marks = [];
     (o.curves || [o.curve]).forEach(c => { if (c) { try { board.removeObject(c); } catch (e) { /* ignore */ } } });
   }
 
@@ -505,7 +527,10 @@ const MathLab = (() => {
     $('#expr-label').textContent = m === '3d' ? 'z = F(x, y) =' : 'f(x) =';
     $('#btn-back-fn').classList.toggle('hidden', m !== 'demo');
     $('#demo-bar').classList.toggle('hidden', m !== 'demo');
-    $('#view-tools').classList.toggle('hidden', m !== '2d');
+    // 视图工具：2D 专用按钮（缩放/复位）只在 2D 显示，2D⇄3D 切换按钮常驻
+    $('#view-tools').classList.toggle('hidden', m === 'demo');
+    $('#vt-2d-only').classList.toggle('hidden', m !== '2d');
+    $('#view-dim').textContent = m === '3d' ? '⇱ 2D 画布' : '⇱ 3D 画布';
     if (m !== 'demo') renderInspector();
   }
 
@@ -524,7 +549,121 @@ const MathLab = (() => {
     }
   }
 
-  // ---------------- 选中函数面板 ----------------
+  // ---------------- 智能函数插入 ----------------
+  // 光标落在标识符/数字上时，点击函数即把该 token 包裹进函数（自带括号）；
+  // token 外围已有括号则不重复加（sin(a) 而非 sin((a))）；光标不在 token 上则插入 fn()。
+  function smartInsert(input, fname, opts) {
+    opts = opts || {};
+    const value = input.value;
+    let start = input.selectionStart == null ? value.length : input.selectionStart;
+    let end = input.selectionEnd == null ? start : input.selectionEnd;
+    // 有选区 → 直接包裹选区；无选区 → 找光标下的 token
+    if (start === end) {
+      const isTok = c => c !== undefined && /[a-zA-Z0-9_]/.test(c);
+      while (start > 0 && isTok(value[start - 1])) start--;
+      while (end < value.length && isTok(value[end])) end++;
+    }
+    const token = value.slice(start, end);
+    let replacement, cursor;
+    if (fname === 'PI') {
+      replacement = 'PI';
+      cursor = start + 2;
+    } else if (opts.postfix) {           // 如 x²：token 后追加 ^2
+      replacement = (token || 'x') + '^2';
+      cursor = start + replacement.length;
+    } else {
+      const prevNS = value.slice(0, start).replace(/\s+$/, '');
+      const nextNS = value.slice(end).replace(/^\s+/, '');
+      if (token && prevNS.endsWith('(') && nextNS.startsWith(')')) {
+        const openIdx = prevNS.length - 1;
+        const beforeOpen = prevNS.slice(0, -1);
+        if (/[a-zA-Z0-9_]$/.test(beforeOpen)) {
+          // 括号属于函数调用（如 sin(b)）：整体嵌套包裹 → cos(sin(b))
+          let nameStart = openIdx;
+          while (nameStart > 0 && /[a-zA-Z0-9_]/.test(value[nameStart - 1])) nameStart--;
+          start = nameStart;
+          end += 1;                                  // 越过配对的 ')'
+          replacement = fname + '(' + value.slice(start, end) + ')';
+        } else {
+          // 裸括号（如 (a)）：把 "(token)" 整体替换为 "fname(token)"，不产生双括号
+          start -= 1; end += 1;
+          replacement = fname + value.slice(start, end);
+        }
+      } else if (token) {
+        replacement = fname + '(' + token + ')';
+      } else {
+        replacement = fname + '()';
+      }
+      cursor = start + fname.length + 1;  // 光标停在左括号后、token 前
+    }
+    input.value = value.slice(0, start) + replacement + value.slice(end);
+    try { input.setSelectionRange(cursor, cursor); } catch (e) { /* 非可聚焦环境 */ }
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    return input.value;
+  }
+
+  // 函数工具条：[显示, 动作]
+  const PALETTE = [
+    ['sin', 'sin'], ['cos', 'cos'], ['tan', 'tan'], ['√', 'sqrt'], ['abs', 'abs'],
+    ['log', 'log'], ['eˣ', 'exp'], ['asin', 'asin'], ['atan', 'atan'],
+    ['floor', 'floor'], ['ceil', 'ceil'], ['sign', 'sgn'], ['x²', 'x²'], ['π', 'π'], ['( )', '()']
+  ];
+  function renderPalette(container, input) {
+    container.innerHTML = '';
+    PALETTE.forEach(([label, act]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pal-btn';
+      b.textContent = label;
+      b.addEventListener('mousedown', e => e.preventDefault()); // 不抢输入框焦点，保住光标位置
+      b.addEventListener('click', () => {
+        if (act === 'x²') smartInsert(input, null, { postfix: true });
+        else if (act === 'π') smartInsert(input, 'PI');
+        else if (act === '()') {
+          const s = input.selectionStart == null ? input.value.length : input.selectionStart;
+          input.value = input.value.slice(0, s) + '()' + input.value.slice(s);
+          try { input.setSelectionRange(s + 1, s + 1); } catch (e) { /* ignore */ }
+        } else smartInsert(input, act);
+        input.focus();
+      });
+      container.appendChild(b);
+    });
+  }
+
+  // ---------------- 数值分析（零点/极值） ----------------
+  // 传入连续函数 f 与采样区间，返回区间内全部零点（有序、近邻去重、二分收敛）
+  function findZeros(f, x0, x1, N) {
+    N = N || 800;
+    const step = (x1 - x0) / N;
+    const zeros = [];
+    let px = x0, py = safe(f, x0);
+    for (let i = 1; i <= N; i++) {
+      const x = x0 + i * step, y = safe(f, x);
+      if (py !== null && y !== null) {
+        if (py === 0) pushZero(zeros, px, minGapOf(x0, x1));
+        else if (py * y < 0) {
+          let a = px, b = x, fa = py;
+          for (let k = 0; k < 60; k++) {
+            const m = (a + b) / 2, fm = safe(f, m);
+            if (fm === null || fm === 0) { a = b = m; break; }
+            if (fa * fm < 0) b = m; else { a = m; fa = fm; }
+          }
+          pushZero(zeros, (a + b) / 2, minGapOf(x0, x1));
+        }
+      }
+      px = x; py = y;
+    }
+    return zeros;
+  }
+  const safe = (f, x) => {
+    try { const v = f(x); return typeof v === 'number' && isFinite(v) ? v : null; } catch (e) { return null; }
+  };
+  const minGapOf = (x0, x1) => Math.abs(x1 - x0) * 0.005;
+  function pushZero(arr, x, gap) {
+    if (!arr.length || Math.abs(x - arr[arr.length - 1]) > gap) arr.push(x);
+  }
+
+
   function selectFn(id) {
     selectedId = id;
     renderFnList();
@@ -536,8 +675,9 @@ const MathLab = (() => {
     row.className = 'param-row';
     row.innerHTML = `<span class="pk">${esc(k)}</span>` +
       `<input type="range" min="-10" max="10" step="0.1" value="${entry.pr[k]}">` +
-      `<input type="number" step="0.1" value="${entry.pr[k]}">`;
-    const [rg, num] = row.querySelectorAll('input');
+      `<input type="number" step="0.1" value="${entry.pr[k]}">` +
+      `<button type="button" class="anim-btn" title="参数动画（往复扫描）">▶</button>`;
+    const [rg, num, anim] = row.querySelectorAll('input, button');
     const set = v => {
       if (isNaN(v)) return;
       entry.pr[k] = v;
@@ -546,7 +686,97 @@ const MathLab = (() => {
     };
     rg.addEventListener('input', () => set(parseFloat(rg.value)));
     num.addEventListener('change', () => set(parseFloat(num.value)));
+    // 参数动画：值在 [-10,10] 间往复扫描，课堂演示"拖 a 看变化"的自动化
+    anim.addEventListener('click', () => {
+      entry._anim = entry._anim || {};
+      if (entry._anim[k]) {
+        cancelAnimationFrame(entry._anim[k]);
+        delete entry._anim[k];
+        anim.textContent = '▶';
+        return;
+      }
+      let dir = 1, last = performance.now();
+      anim.textContent = '⏸';
+      const step = now => {
+        if (!entry._anim[k]) return;
+        const dt = Math.min(50, now - last) / 1000; last = now;
+        let v = entry.pr[k] + dir * dt * 2.5;
+        if (v > 10) { v = 10; dir = -1; } else if (v < -10) { v = -10; dir = 1; }
+        set(Math.round(v * 100) / 100);
+        entry._anim[k] = requestAnimationFrame(step);
+      };
+      entry._anim[k] = requestAnimationFrame(step);
+    });
     container.appendChild(row);
+  }
+
+  const fmtNum = v => v === null || !isFinite(v) ? '—' : (Math.abs(v) < 1e-10 ? '0' : String(Math.round(v * 10000) / 10000));
+
+  // 函数分析面板：当前视口内的零点、极值、截距；math.js 在线时附符号导数
+  function buildAnalysisPanel(entry) {
+    const box = document.createElement('div');
+    box.className = 'analysis';
+    const t = document.createElement('div');
+    t.className = 'inspect-sub';
+    t.textContent = '函数分析（当前视口）';
+    box.appendChild(t);
+    const bb = board.getBoundingBox();
+    const x0 = bb[0], x1 = bb[2];
+    const rows = [];
+    const y0 = safe(entry.fn, 0);
+    rows.push(`f(0) = ${fmtNum(y0)}`);
+    const roots = findZeros(entry.fn, x0, x1);
+    rows.push(`零点：${roots.length ? roots.map(fmtNum).join('、') : '当前视口内无'}`);
+    // 数值导数 → 零点 → 二阶差分定极大/极小
+    const h = (x1 - x0) / 2000;
+    const d = x => { const a = safe(entry.fn, x - h), b = safe(entry.fn, x + h); return (a === null || b === null) ? null : (b - a) / (2 * h); };
+    const exts = findZeros(d, x0, x1).map(x => {
+      const fm = safe(entry.fn, x);
+      const a = safe(entry.fn, x - h), b = safe(entry.fn, x + h);
+      const d2 = (a === null || b === null || fm === null) ? 0 : (b - 2 * fm + a) / (h * h);
+      return { x, y: fm, kind: d2 > 0 ? '极小' : d2 < 0 ? '极大' : '驻点' };
+    }).filter(e => e.y !== null);
+    rows.push(`极值点：${exts.length ? exts.map(e => `${e.kind}(${fmtNum(e.x)}, ${fmtNum(e.y)})`).join('、') : '当前视口内无'}`);
+    if (window.math) {
+      try {
+        let s = entry.expr;
+        entry.params.forEach(k => { s = s.replace(new RegExp('\\b' + k + '\\b', 'g'), '(' + entry.pr[k] + ')'); });
+        rows.push(`f '(x) = ${math.derivative(s, 'x').toString()}`);
+      } catch (e) { /* 嵌套引用等场景无法求符号导数，静默跳过 */ }
+    }
+    const info = document.createElement('div');
+    info.className = 'analysis-body';
+    info.innerHTML = rows.map(r => `<div class="ana-row">${esc(r)}</div>`).join('');
+    box.appendChild(info);
+    const mk = document.createElement('div');
+    mk.className = 'btn-row';
+    const btnRoots = document.createElement('button');
+    btnRoots.className = 'btn tiny';
+    btnRoots.textContent = '⊙ 标注零点';
+    btnRoots.addEventListener('click', () => {
+      entry._marks = entry._marks || [];
+      roots.forEach(x => {
+        const y = safe(entry.fn, x);
+        if (y === null) return;
+        entry._marks.push(board.create('point', [x, y],
+          { name: '', size: 3, fillColor: '#e05656', strokeColor: '#e05656', fixed: true }));
+      });
+    });
+    const btnClear = document.createElement('button');
+    btnClear.className = 'btn tiny';
+    btnClear.textContent = '清除标注';
+    btnClear.addEventListener('click', () => {
+      (entry._marks || []).forEach(p => { try { board.removeObject(p); } catch (e) { /* ignore */ } });
+      entry._marks = [];
+    });
+    mk.appendChild(btnRoots);
+    mk.appendChild(btnClear);
+    box.appendChild(mk);
+    const tip = document.createElement('div');
+    tip.className = 'tip-3d';
+    tip.textContent = '基于当前视口采样分析，自动去重；符号导数由 math.js 提供（未加载时自动省略）。';
+    box.appendChild(tip);
+    return box;
   }
 
   function renderInspector() {
@@ -592,6 +822,13 @@ const MathLab = (() => {
       if (e.key === 'Enter') er.querySelector('button').click();
     });
     box.appendChild(er);
+    // 函数工具条：光标处智能插入（token 包裹 + 括号去重）
+    const pal = document.createElement('div');
+    pal.className = 'ins-palette';
+    renderPalette(pal, er.querySelector('input'));
+    box.appendChild(pal);
+    // 函数分析（仅普通函数）：零点/极值/截距 + 可选符号导数
+    if (!is3 && entry.type === 'fn') box.appendChild(buildAnalysisPanel(entry));
     // 参数（自动识别，滑块 + 数值框）
     if (entry.params.length) {
       const t = document.createElement('div');
@@ -645,6 +882,23 @@ const MathLab = (() => {
       setStyle({ visible: entry.visible });
     });
     box.appendChild(cr);
+    // 曲线样式：线宽 + 线型
+    const st = document.createElement('div');
+    st.className = 'inspect-row';
+    st.innerHTML = `<span>线宽</span><select class="st-w">` +
+      [1, 1.5, 2, 2.5, 3, 4, 5].map(w => `<option value="${w}" ${w === (entry.width || 2.5) ? 'selected' : ''}>${w}</option>`).join('') +
+      `</select><span>线型</span><select class="st-d">` +
+      [[0, '实线'], [2, '虚线'], [1, '点线'], [3, '点划线']].map(([v, n]) => `<option value="${v}" ${v === (entry.dash || 0) ? 'selected' : ''}>${n}</option>`).join('') +
+      `</select>`;
+    st.querySelector('.st-w').addEventListener('change', e => {
+      entry.width = parseFloat(e.target.value);
+      setStyle({ strokeWidth: entry.width });
+    });
+    st.querySelector('.st-d').addEventListener('change', e => {
+      entry.dash = parseInt(e.target.value);
+      setStyle({ dash: entry.dash });
+    });
+    box.appendChild(st);
     const del = document.createElement('button');
     del.className = 'btn small danger';
     del.textContent = '删除该函数';
@@ -1148,6 +1402,15 @@ const MathLab = (() => {
     });
     $('#btn-clear-fn').addEventListener('click', clearAll);
     $('#btn-back-fn').addEventListener('click', closeDemo);
+    // 2D⇄3D 自由切换；首次进 3D 且无曲面时给默认涟漪曲面，教师立刻看到效果
+    $('#view-dim').addEventListener('click', () => {
+      if (mode === 'demo') closeDemo();
+      if (mode === '3d') { setMode('2d'); return; }
+      setMode('3d');
+      if (!fn3d) { try { add3D('sin(sqrt(x^2 + y^2))'); } catch (e) { /* ignore */ } }
+    });
+    // 主输入框的函数工具条
+    renderPalette($('#main-palette'), $('#expr-input'));
     // 2D 视图变换（拖拽平移 / 滚轮缩放已在画板开启）
     $('#view-zi').addEventListener('click', () => board.zoomIn());
     $('#view-zo').addEventListener('click', () => board.zoomOut());
@@ -1185,5 +1448,9 @@ const MathLab = (() => {
     (s.exprs || []).forEach(e => { try { addExpr(e); } catch (err) { /* skip */ } });
   }
 
-  return { init, setCategory, addExpr, state, applyScene, CATS };
+  return {
+    init, setCategory, addExpr, state, applyScene, CATS,
+    // 内部工具：仅测试与高级用法使用
+    _internal: { smartInsert, findZeros, scheduleViewRebuild, safe }
+  };
 })();

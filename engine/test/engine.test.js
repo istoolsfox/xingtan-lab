@@ -12,11 +12,14 @@ const path = require('node:path');
 function el() {
   const e = {
     style: {}, dataset: {}, children: [], value: '', textContent: '', _inner: '',
+    selectionStart: 0, selectionEnd: 0,
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
     addEventListener() {}, appendChild(c) { this.children.push(c); }, remove() {},
     querySelector() { return el(); },
     querySelectorAll() { return [el(), el()]; },
     setAttribute() {}, focus() {}, click() {},
+    setSelectionRange(a, b) { this.selectionStart = a; this.selectionEnd = b; },
+    dispatchEvent() {},
   };
   Object.defineProperty(e, 'innerHTML', { get() { return this._inner; }, set(v) { this._inner = v; this.children = []; } });
   return e;
@@ -25,6 +28,14 @@ const els = {};
 global.document = { querySelector(s) { return els[s] || (els[s] = el()); }, createElement() { return el(); } };
 global.window = { event: null };
 global.requestAnimationFrame = fn => setTimeout(fn, 0);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function makeInput(value, cursor) {
+  const i = el();
+  i.value = value;
+  i.selectionStart = i.selectionEnd = cursor;
+  return i;
+}
 
 function evalModule(file, exportName) {
   const src = fs.readFileSync(path.join(__dirname, '..', 'public', file), 'utf8');
@@ -32,9 +43,56 @@ function evalModule(file, exportName) {
   return globalThis[exportName];
 }
 
+// ---------- 智能插入（纯函数，独立于画板） ----------
+describe('smartInsert', () => {
+  const MathLab0 = evalModule('mathlab.js', 'MathLab');
+  const si = (value, cursor, fname, opts) => {
+    const input = makeInput(value, cursor);
+    MathLab0._internal.smartInsert(input, fname, opts);
+    return { value: input.value, cursor: input.selectionStart };
+  };
+  test('光标在参数 a 上 → sin 包裹且光标在括号内', () => {
+    assert.deepStrictEqual(si('a*x+b', 1, 'sin'), { value: 'sin(a)*x+b', cursor: 4 });
+  });
+  test('token 外围已有括号 → 不重复加括号', () => {
+    assert.deepStrictEqual(si('(a)*x', 2, 'sin'), { value: 'sin(a)*x', cursor: 4 });
+  });
+  test('token 属于函数调用（sin(b)）→ 嵌套包裹为 cos(sin(b))', () => {
+    assert.deepStrictEqual(si('k*x + sin(b)', 10, 'cos'), { value: 'k*x + cos(sin(b))', cursor: 10 });
+  });
+  test('光标不在 token 上 → 插入 sin() 且光标居中', () => {
+    assert.deepStrictEqual(si('a*x+', 4, 'cos'), { value: 'a*x+cos()', cursor: 8 });
+  });
+  test('数字 token 同样被包裹', () => {
+    assert.deepStrictEqual(si('x+42', 4, 'sqrt'), { value: 'x+sqrt(42)', cursor: 7 });
+  });
+  test('x² 后缀包裹 / π 插入 PI', () => {
+    assert.deepStrictEqual(si('a*x', 1, null, { postfix: true }), { value: 'a^2*x', cursor: 3 });
+    assert.deepStrictEqual(si('2*', 3, 'PI'), { value: '2*PI', cursor: 5 });
+  });
+});
+
+// ---------- 数值分析 ----------
+describe('findZeros', () => {
+  const MathLab0 = evalModule('mathlab.js', 'MathLab');
+  test('sin 在 [-7,7] 求得 5 个零点（含 ±2π），误差 < 1e-8', () => {
+    const zs = MathLab0._internal.findZeros(Math.sin, -7, 7);
+    assert.strictEqual(zs.length, 5);
+    for (const expected of [-2 * Math.PI, -Math.PI, 0, Math.PI, 2 * Math.PI]) {
+      assert.ok(zs.some(z => Math.abs(z - expected) < 1e-8), `应有零点 ${expected}`);
+    }
+  });
+  test('x²+1 无零点返回空数组', () => {
+    assert.deepStrictEqual(MathLab0._internal.findZeros(x => x * x + 1, -10, 10), []);
+  });
+});
+
 // ---------- 数学实验室 ----------
 describe('mathlab', () => {
   let created = [];
+  let bb = [-8, 6, 8, -6];
+  let boardHandlers = {};
+  const emitBoard = ev => (boardHandlers[ev] || []).forEach(fn => fn());
   global.Surface3D = class { setFunction() {} resetView() {} setParam() {} };
   global.JXG = {
     COORDS_BY_SCREEN: 1,
@@ -42,7 +100,8 @@ describe('mathlab', () => {
       initBoard() {
         return {
           create(type, parents, attrs) { const o = { type, parents, attrs, on() {}, setAttribute() {} }; created.push(o); return o; },
-          on() {}, update() {}, removeObject() {}, getBoundingBox() { return [-8, 6, 8, -6]; },
+          on(ev, fn) { (boardHandlers[ev] = boardHandlers[ev] || []).push(fn); },
+          update() {}, removeObject() {}, getBoundingBox() { return bb; },
         };
       }
     }
@@ -92,6 +151,19 @@ describe('mathlab', () => {
   test('普通函数嵌套联动不受新类型影响', () => {
     MathLab.applyScene({ exprs: ['a*x^2', 'sin(f(x)/2)'] });
     assert.strictEqual(MathLab.state().exprs.length, 2);
+  });
+
+  test('无限画布：视口平移后函数曲线定义域跟随重建', async () => {
+    MathLab.applyScene({ exprs: ['x^2'] });
+    created = [];
+    bb = [20, 10, 40, -10];          // 模拟向右平移两屏
+    emitBoard('update');
+    await sleep(20);                 // rAF 桩走 setTimeout
+    const fg = created.filter(c => c.type === 'functiongraph').pop();
+    assert.ok(fg, '视口变化应重建 functiongraph');
+    assert.ok(fg.parents[1] <= 20 && fg.parents[2] >= 40,
+      `定义域应覆盖新视口（实际 ${fg.parents[1]}..${fg.parents[2]}）`);
+    bb = [-8, 6, 8, -6];
   });
 });
 

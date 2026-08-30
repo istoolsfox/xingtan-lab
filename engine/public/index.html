@@ -80,6 +80,7 @@
           <button id="btn-back-fn" class="btn small hidden">← 返回函数列表</button>
           <button id="math-save" class="btn small">💾 保存演示</button>
         </div>
+        <div id="main-palette" class="pal-row"></div>
         <div class="view-badge" id="view-badge">二维视图</div>
         <div class="expr-error" id="expr-error"></div>
       </div>
@@ -92,9 +93,12 @@
         </aside>
         <div class="plot-area">
           <div class="view-tools hidden" id="view-tools">
-            <button id="view-zi" class="btn tiny" title="放大">＋</button>
-            <button id="view-zo" class="btn tiny" title="缩小">－</button>
-            <button id="view-reset" class="btn tiny" title="复位视图">复位</button>
+            <span id="vt-2d-only" class="vt-group">
+              <button id="view-zi" class="btn tiny" title="放大">＋</button>
+              <button id="view-zo" class="btn tiny" title="缩小">－</button>
+              <button id="view-reset" class="btn tiny" title="复位视图">复位</button>
+            </span>
+            <button id="view-dim" class="btn tiny" title="切换 2D / 3D 画布">⇱ 3D 画布</button>
           </div>
           <div id="plot2d" class="jxgbox plot2d"></div>
           <canvas id="plot3d" class="plot3d hidden" width="860" height="540"></canvas>
@@ -224,6 +228,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsxgraph@1.10.1/distrib/jsxgraphcore.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathjs@13.0.0/lib/browser/math.min.js"></script>
 <script src="chemistry.js"></script>
 <script src="physics.js"></script>
 <script src="surface3d.js"></script>
