@@ -7,6 +7,7 @@ const Chinese = (() => {
   'use strict';
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const $ = s => document.querySelector(s);
+  const $$ = s => [...document.querySelectorAll(s)];
 
   // ---------------- 古诗文库（数据驱动） ----------------
   const POEMS = [
@@ -464,13 +465,15 @@ const Chinese = (() => {
     if (raf) cancelAnimationFrame(raf);
     const draw = t => {
       tGlobal = t;
-      if (p.id !== poemId || tab !== 'poem') return;   // 离开即停
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      // 先画底色类元素（night/day/dawn），再画其余
-      p.scenery.forEach(s => {
-        const fn = SCENERY[s.type];
-        if (fn) fn(ctx, s.x, s.y, s.size || 1, t, s);
-      });
+      // 仅在诗未变、面板可见时重绘；页面切走/面板隐藏时空转（rAF 空转成本可忽略）
+      if (p.id === poemId && tab === 'poem' && canvas.offsetParent !== null) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // 先画底色类元素（night/day/dawn），再画其余
+        p.scenery.forEach(s => {
+          const fn = SCENERY[s.type];
+          if (fn) fn(ctx, s.x, s.y, s.size || 1, t, s);
+        });
+      }
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);

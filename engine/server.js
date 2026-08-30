@@ -242,7 +242,13 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname.startsWith('/api/auth/')) return handleAuth(url, req, res).catch(e => handleApiError(res, e));
     if (url.pathname.startsWith('/api/scenes')) return handleScenes(url, req, res).catch(e => handleApiError(res, e));
 
-    let p = url.pathname === '/' ? '/index.html' : decodeURIComponent(url.pathname);
+    let p;
+    try {
+      p = url.pathname === '/' ? '/index.html' : decodeURIComponent(url.pathname);
+    } catch (e) {
+      log.warn('static', `bad url encoding: ${req.url}`);
+      return send(res, 400, { ok: false, error: 'forbidden' });
+    }
     const file = path.normalize(path.join(PUB, p));
     if (!file.startsWith(PUB)) return send(res, 403, { ok: false, error: 'forbidden' });
     fs.readFile(file, (err, data) => {

@@ -301,8 +301,11 @@ const Physics = (() => {
           trailMap.set(b.id, arr);
         });
       }
-      render();
-      if (hudFn) document.getElementById('phy-hud').textContent = hudFn();
+      // 物理状态照常推进（保证连续性），页面隐藏时跳过绘制与 HUD 更新
+      if (canvas.offsetParent !== null) {
+        render();
+        if (hudFn) document.getElementById('phy-hud').textContent = hudFn();
+      }
     }
     requestAnimationFrame(loop);
   }

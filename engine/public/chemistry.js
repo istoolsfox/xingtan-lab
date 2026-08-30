@@ -752,6 +752,8 @@ const ChemEngine = (() => {
   // ---------- 主循环 ----------
   function tick(now) {
     if (!reaction) return;
+    // 页面隐藏（切走导航/切到其他子标签）时冻结时间轴并跳过绘制，回来接着放
+    if (macroCv.offsetParent === null) { raf = requestAnimationFrame(tick); return; }
     const dt = Math.min(50, now - lastT); lastT = now;
     if (playing) phase += dt / (HOLD + TRANSIT);
     const n = reaction.stages.length;
