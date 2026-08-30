@@ -10,55 +10,142 @@
  */
 const MathLab = (() => {
   'use strict';
-  const FN_NAMES = ['sin', 'cos', 'tan', 'atan', 'asin', 'acos', 'sqrt', 'abs', 'log', 'exp', 'min', 'max', 'PI', 'round', 'floor', 'ceil', 'sgn'];
+  // 支持的内置函数（含高中反三角/余切割、大学伽马与阶乘）
+  const FN_NAMES = ['sin', 'cos', 'tan', 'atan', 'asin', 'acos', 'sqrt', 'abs', 'log', 'exp', 'min', 'max', 'PI', 'round', 'floor', 'ceil', 'sgn', 'cot', 'sec', 'csc', 'gamma', 'fact'];
   const FN_RE = new RegExp('\\b(' + FN_NAMES.join('|') + ')\\b', 'g');
+  // JS 没有的内置函数映射（全部走 __F 作用域；sgn 修复双重替换）
+  const FN_MAP = [
+    [/Math\.cot\(/g, '__F.cot('],
+    [/Math\.sec\(/g, '__F.sec('],
+    [/Math\.csc\(/g, '__F.csc('],
+    [/Math\.sgn\(/g, 'Math.sign('],
+    [/Math\.gamma\(/g, '__F.gamma('],
+    [/Math\.fact\(/g, '__F.fact(']
+  ];
+  // Lanczos 近似伽马函数（支持阶乘/泊松/贝塔类教学函数），z>0 且非极点
+  function gammaFn(z) {
+    const C = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313,
+      -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+    if (z < 0.5) return Math.PI / (Math.sin(Math.PI * z) * gammaFn(1 - z));
+    z -= 1;
+    let x = C[0];
+    for (let i = 1; i < 9; i++) x += C[i] / (z + i);
+    const t = z + 7.5;
+    return Math.sqrt(2 * Math.PI) * Math.pow(t, z + 0.5) * Math.exp(-t) * x;
+  }
   const COLORS = ['#3b6fd4', '#e05656', '#2fae6e', '#9b59b6', '#e67e22', '#16a085'];
   const NAME_SEQ = ['f', 'g', 'h', 'u', 'v', 'w'];
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   // ---------------- 分类与预设 ----------------
   const CATS = {
+    primary: {
+      name: '① 变量与规律', level: '小学',
+      intro: '生活中"一个量变，另一个量跟着变"的关系，就是函数的种子。',
+      presets: [
+        { name: '正比例关系', expr: 'k*x', desc: '单价 k 元，买 x 个共 kx 元' },
+        { name: '反比例关系', expr: 'k/x', desc: '总量一定，份数越多每份越少' },
+        { name: '正方形面积', expr: 'x^2', desc: '边长 x → 面积 x²' },
+        { name: '正方体体积', expr: 'x^3', desc: '棱长 x → 体积 x³' },
+        { name: '分段计费', expr: '5 + 2*x', desc: '起步价 5 元 + 每公里 2 元' }
+      ],
+      demos: []
+    },
     basic: {
-      name: '① 基本函数', level: '初等数学',
-      intro: '一次、二次、反比例与绝对值函数——初中函数的起点。',
+      name: '② 一次与反比例', level: '初中',
+      intro: '初中函数的起点：一次函数的直线、反比例的双曲线与绝对值。',
       presets: [
         { name: '一次函数', expr: 'k*x + b', desc: '斜率与截距' },
-        { name: '二次函数（一般式）', expr: 'a*x^2 + b*x + c', desc: '开口/顶点/对称轴' },
-        { name: '二次函数（顶点式）', expr: 'a*(x-h)^2 + k', desc: '顶点 (h,k)' },
+        { name: '正比例函数', expr: 'k*x', desc: '过原点的直线' },
         { name: '反比例函数', expr: 'k/x', desc: '双曲线' },
         { name: '绝对值函数', expr: 'a*abs(x) + b', desc: 'V 形折线' },
-        { name: '分段拼合（示例）', expr: 'x + abs(x^2 - 4)', desc: '绝对值构造分段' }
+        { name: '分段拼合（示例）', expr: 'x + abs(x^2 - 4)', desc: '绝对值构造分段' },
+        { name: '含参一次函数族', expr: 'a*x + 1', desc: '拖 a 看直线系' }
+      ],
+      demos: []
+    },
+    quadratic: {
+      name: '③ 二次函数', level: '初中',
+      intro: '开口、顶点、对称轴——二次函数的三种表达式各有分工。',
+      presets: [
+        { name: '一般式', expr: 'a*x^2 + b*x + c', desc: '开口/顶点/对称轴' },
+        { name: '顶点式', expr: 'a*(x-h)^2 + k', desc: '顶点 (h,k)' },
+        { name: '交点式', expr: 'a*(x-m)*(x-n)', desc: '零点在 x=m 与 x=n' },
+        { name: '宽窄对比', expr: 'a*x^2', desc: '拖 a 看开口宽窄' },
+        { name: '二次 + 一次（交点）', expr: 'a*x^2 - x', desc: '与直线 y=x 的交点' }
       ],
       demos: []
     },
     power: {
-      name: '② 幂·指数·对数', level: '初等数学',
+      name: '④ 幂·指数·对数', level: '高中',
       intro: '三类增长速度完全不同的基本初等函数。',
       presets: [
         { name: '幂函数', expr: 'x^a', desc: 'a 控制形状' },
+        { name: '平方根（根式）', expr: 'sqrt(x)', desc: 'x^(1/2)' },
+        { name: '立方根', expr: 'x^(1/3)', desc: '负数也有立方根' },
         { name: '指数函数', expr: 'a^x', desc: '增长 / 衰减' },
         { name: '自然指数', expr: 'exp(x)', desc: 'e^x' },
         { name: '对数函数', expr: 'log(x)/log(a)', desc: 'log_a(x)' },
-        { name: '指数 vs 幂', expr: 'a^x - x^2', desc: '谁增长更快？' }
+        { name: '自然对数', expr: 'log(x)', desc: 'ln x' },
+        { name: '指数 vs 幂', expr: 'a^x - x^2', desc: '谁增长更快？' },
+        { name: '指数衰减', expr: 'exp(-a*x)', desc: '半衰期模型' }
       ],
       demos: []
     },
     trig: {
-      name: '③ 三角函数', level: '初等数学',
-      intro: '周期现象的数学语言。',
+      name: '⑤ 三角函数', level: '高中',
+      intro: '周期现象的数学语言：正余弦、正余切、正余割与反三角。',
       presets: [
         { name: '正弦波', expr: 'A*sin(w*x + p)', desc: '振幅/频率/初相' },
         { name: '余弦波', expr: 'A*cos(w*x + p)', desc: '与正弦相差 π/2' },
-        { name: '正切', expr: 'A*tan(w*x)', desc: '周期 π' },
-        { name: '拍（叠加）', expr: 'sin(a*x) + sin(b*x)', desc: '频率接近形成拍' }
+        { name: '正切', expr: 'A*tan(w*x)', desc: '周期 π，有无穷间断' },
+        { name: '余切', expr: 'cot(x)', desc: '1/tan x' },
+        { name: '正割', expr: 'sec(x)', desc: '1/cos x' },
+        { name: '余割', expr: 'csc(x)', desc: '1/sin x' },
+        { name: '反正弦', expr: 'asin(x)', desc: '值域 [-π/2, π/2]' },
+        { name: '反余弦', expr: 'acos(x)', desc: '值域 [0, π]' },
+        { name: '反正切', expr: 'atan(x)', desc: '水平渐近线 ±π/2' },
+        { name: '拍（叠加）', expr: 'sin(a*x) + sin(b*x)', desc: '频率接近形成拍' },
+        { name: '恒等式验证', expr: 'sin(x)^2 + cos(x)^2', desc: '恒等于 1 的水平线' }
+      ],
+      demos: []
+    },
+    transform: {
+      name: '⑥ 函数变换', level: '高中',
+      intro: '平移、伸缩、翻转、折叠——一切变换都能在 sin(x) 上看清楚。',
+      presets: [
+        { name: '纵向缩放', expr: 'a*sin(x)', desc: '|a|>1 拉伸，<1 压缩' },
+        { name: '横向缩放', expr: 'sin(a*x)', desc: 'a 越大周期越短' },
+        { name: '水平平移', expr: 'sin(x - p)', desc: '右移 p（左加右减）' },
+        { name: '垂直平移', expr: 'sin(x) + k', desc: '上移 k' },
+        { name: '关于 x 轴翻转', expr: '-sin(x)', desc: '上下翻转' },
+        { name: '绝对值折叠', expr: 'abs(sin(x))', desc: '负半轴翻上去' },
+        { name: '符号函数', expr: 'sgn(sin(x))', desc: '只保留正负号' },
+        { name: '综合变换', expr: 'a*sin(w*(x - p)) + k', desc: '四要素一次看全' }
+      ],
+      demos: []
+    },
+    discrete: {
+      name: '⑦ 数列与离散', level: '高中',
+      intro: '把 x 换成项数 n，函数就成了数列；取整函数天然离散。',
+      presets: [
+        { name: '等差数列通项', expr: 'a*x + b', desc: 'an = a1 + (n-1)d' },
+        { name: '等比数列通项', expr: 'a^x', desc: 'an = a1·q^(n-1)' },
+        { name: '阶乘', expr: 'fact(x)', desc: 'x!（伽马函数插值）' },
+        { name: '取整函数（阶梯）', expr: 'floor(x)', desc: '不超过 x 的最大整数' },
+        { name: '小数部分', expr: 'x - floor(x)', desc: '锯齿波原型' },
+        { name: '符号函数', expr: 'sgn(x)', desc: '三段台阶' },
+        { name: '泊松分布形态', expr: 'fact(x)*exp(-l)*l^x', desc: 'P(X=k)=λᵏe^{-λ}/k!（拖 l）' }
       ],
       demos: []
     },
     calculus: {
-      name: '④ 微分与积分', level: '高等数学',
+      name: '⑧ 微分与积分', level: '大学',
       intro: '切线的斜率是导数，曲线下的面积是积分。',
       presets: [
-        { name: '三次曲线', expr: 'a*x^3 + b*x', desc: '配合下方演示观察' }
+        { name: '三次曲线', expr: 'a*x^3 + b*x', desc: '配合下方演示观察' },
+        { name: '高斯函数', expr: 'exp(-x^2)', desc: '钟形，处处光滑' },
+        { name: '振荡积分', expr: 'x*sin(x)', desc: '面积正负相消' }
       ],
       demos: [
         { id: 'deriv', name: '导数与切线', desc: '拖动点，切线与导数实时变化' },
@@ -66,7 +153,7 @@ const MathLab = (() => {
       ]
     },
     series: {
-      name: '⑤ 级数·泰勒展开', level: '高等数学',
+      name: '⑨ 级数·泰勒展开', level: '大学',
       intro: '用多项式逼近任意光滑函数。',
       presets: [
         { name: '正弦', expr: 'sin(x)', desc: '配合泰勒演示' },
@@ -79,10 +166,11 @@ const MathLab = (() => {
       ]
     },
     fourier: {
-      name: '⑥ 傅里叶', level: '高等数学',
+      name: '⑩ 傅里叶与信号', level: '大学',
       intro: '任何周期信号都是正弦波的叠加。',
       presets: [
-        { name: '谐波叠加', expr: 'sin(x) + sin(3*x)/3 + sin(5*x)/5', desc: '方波的前 3 项' }
+        { name: '谐波叠加', expr: 'sin(x) + sin(3*x)/3 + sin(5*x)/5', desc: '方波的前 3 项' },
+        { name: '整流信号', expr: 'abs(sin(x))', desc: '全波整流的傅里叶原料' }
       ],
       demos: [
         { id: 'fourier-square', name: '傅里叶级数 · 方波', desc: 'N 项谐波合成方波' },
@@ -90,21 +178,47 @@ const MathLab = (() => {
         { id: 'dft', name: '傅里叶变换 · 频谱', desc: '时域信号 → DFT → 频谱' }
       ]
     },
+    growth: {
+      name: '⑪ 增长与微分方程', level: '大学',
+      intro: '微分方程的解就是这些曲线：增长、衰减、振荡与饱和。',
+      presets: [
+        { name: '指数增长', expr: 'exp(a*x)', desc: 'y\' = a·y 的解' },
+        { name: '指数衰减', expr: 'exp(-a*x)', desc: '放射性衰变 / 牛顿冷却' },
+        { name: 'Logistic 饱和增长', expr: '1/(1 + exp(-k*(x - h)))', desc: 'S 形曲线，拖 k 与 h' },
+        { name: '阻尼振动', expr: 'exp(-a*x)*sin(w*x)', desc: '振幅指数衰减的振动' },
+        { name: '饱和模型', expr: '1 - exp(-a*x)', desc: '学习曲线 / 充电曲线' },
+        { name: '过冲响应', expr: '1 - exp(-a*x)*(cos(w*x) + sin(w*x)/w)', desc: '二阶系统阶跃响应' }
+      ],
+      demos: []
+    },
+    stats: {
+      name: '⑫ 概率与统计', level: '大学',
+      intro: '概率密度、分布与激活函数——统计与机器学习的公共数学。',
+      presets: [
+        { name: '标准正态密度', expr: 'exp(-x^2/2)/sqrt(2*PI)', desc: 'μ=0, σ=1 的钟形曲线' },
+        { name: '一般正态密度', expr: 'exp(-((x - m)^2)/(2*s^2))/(s*sqrt(2*PI))', desc: '拖 m 移动、s 拉宽' },
+        { name: '柯西密度', expr: '1/(PI*(1 + x^2))', desc: '胖尾巴：均值不存在' },
+        { name: 'Sigmoid 函数', expr: '1/(1 + exp(-x))', desc: '神经网络激活函数' },
+        { name: '伽马函数', expr: 'gamma(x)', desc: '阶乘的连续推广' },
+        { name: '正态 vs 柯西', expr: 'exp(-x^2/2)/sqrt(2*PI) - 1/(PI*(1 + x^2))', desc: '尾巴厚薄之差' }
+      ],
+      demos: []
+    },
     surface: {
-      name: '⑦ 三维曲面', level: '高等数学',
+      name: '⑬ 三维曲面', level: '大学',
       intro: 'z = f(x, y)，输入含 y 的表达式自动进入三维。',
       presets: [
         { name: '旋转抛物面', expr: 'x^2 + y^2', desc: 'z = x²+y²' },
         { name: '马鞍面', expr: 'x^2 - y^2', desc: '双曲抛物面' },
         { name: '正弦波面', expr: 'sin(x)*cos(y)', desc: '二维驻波' },
         { name: '涟漪', expr: 'sin(sqrt(x^2 + y^2))', desc: '中心扩散波纹' },
-        { name: '高斯峰', expr: 'exp(-(x^2 + y^2))', desc: '钟形曲面' },
+        { name: '高斯峰', expr: 'exp(-(x^2 + y^2))', desc: '二维正态密度面' },
         { name: '带参数的波', expr: 'a*sin(x*y)', desc: '拖 a 看变化' }
       ],
       demos: []
     },
     param: {
-      name: '⑧ 参数曲线·极坐标', level: '拓展',
+      name: '⑭ 参数曲线·极坐标', level: '拓展',
       intro: '当 x、y 各自随参数 t 变化，或用角度与半径描述曲线时，会得到一系列经典曲线。极坐标可直接输入 r = ...（θ 可写作 t）。',
       presets: [
         { name: '心形线', expr: 'r = 1 + cos(t)', desc: 'r = 1 + cosθ' },
@@ -120,7 +234,7 @@ const MathLab = (() => {
       ]
     },
     conic: {
-      name: '⑨ 解析几何 · 向量场', level: '高中数学',
+      name: '⑧ 圆锥曲线·向量场', level: '高中',
       intro: '直接输入含 = 的表达式即可画出隐函数曲线（如 x^2 + y^2 = 25）；参数 a、b 可拖动观察曲线如何变化。',
       presets: [
         { name: '圆', expr: 'x^2 + y^2 = 25', desc: '到定点距离等于定长' },
@@ -155,18 +269,29 @@ const MathLab = (() => {
     const vars = opts.vars || (is3D ? ['x', 'y'] : ['x']);
     const letters = [...new Set(stripped.match(/[a-zA-Z]/g) || [])]
       .filter(c => c !== 'e' && !refLetters.includes(c) && !vars.includes(c));
-    let withMath = js.replace(FN_RE, 'Math.$1').replace(/\bsgn\(/g, 'Math.sign(');
+    let withMath = js.replace(FN_RE, 'Math.$1');
+    FN_MAP.forEach(([re, to]) => { withMath = withMath.replace(re, to); });
+    // JS 语法限制：一元负号不能直接作 ** 的左操作数（-x**2 是语法错误），包成 -(x**2)
+    withMath = withMath
+      .replace(/\*\*\s*-\s*([a-zA-Z0-9_.]+|\([^()]*\))/g, '**(-$1)')   // 右操作数：x**-1 → x**(-1)
+      .replace(/(^|[(,+\-*\/]\s*)-\s*([a-zA-Z][a-zA-Z0-9_.]*(?:\s*\*\*\s*[a-zA-Z0-9_.()]+)*)/g, '$1-($2)'); // 左侧：-x**2 → -(x**2)
     refs.forEach(n => { withMath = withMath.replace(new RegExp('\\b' + n + '\\s*\\(', 'g'), '__F.' + n + '('); });
     const argNames = ['__F', ...vars, ...letters];
     const f = new Function(...argNames, `"use strict"; return (${withMath});`);
-    // 试算：嵌套引用用替身作用域（任何函数返回 1）
+    // 试算：多组采样点防退化（如 log(x)/log(a) 在 x=1,a=1 时为 0/0），任一点有限即通过；
+    // 嵌套引用用替身作用域（任何函数返回 1）且从不因试算失败拒绝
     const stub = new Proxy({}, { get: () => () => 1 });
-    try {
-      const t0 = f(stub, ...vars.map(() => 1), ...letters.map(() => 1));
-      if (typeof t0 !== 'number' || isNaN(t0)) throw new Error('表达式无法计算');
-    } catch (e) {
-      if (!refs.length) throw new Error('表达式无法计算');
+    let trialOk = false;
+    for (const pv of [2, 3]) {
+      for (const xv of [1, 2, 0.5]) {
+        try {
+          const t0 = f(stub, ...vars.map(() => xv), ...letters.map(() => pv));
+          if (typeof t0 === 'number' && isFinite(t0)) { trialOk = true; break; }
+        } catch (e) { /* 试下一个点 */ }
+      }
+      if (trialOk) break;
     }
+    if (!trialOk && !refs.length) throw new Error('表达式无法计算');
     return { f, params: letters, is3D, refs };
   }
 
@@ -183,9 +308,15 @@ const MathLab = (() => {
   let demoState = null;          // 当前演示
   const $ = s => document.querySelector(s);
 
-  // 引用作用域：实时构建，保证嵌套联动
+  // 引用作用域：实时构建，保证嵌套联动；cot/sec/csc/gamma/fact 是内置数学助手
   function scope() {
-    const s = {};
+    const s = {
+      cot: t => 1 / Math.tan(t),
+      sec: t => 1 / Math.cos(t),
+      csc: t => 1 / Math.sin(t),
+      gamma: gammaFn,
+      fact: n => gammaFn(n + 1)
+    };
     fns.forEach(o => { s[o.name] = o.fn; });
     return s;
   }
@@ -279,6 +410,13 @@ const MathLab = (() => {
       entry.curve.on('down', () => { if (mode === '2d') selectFn(entry.id); });
     };
     entry.build();
+    // 参数默认值修正：全 1 组合可能整体退化（如 log(x)/log(a) 在 a=1 时恒为 NaN），换 2 试试
+    if (entry.params.length && [1, 2, 3].every(v => { const r = entry.fn(v); return typeof r !== 'number' || isNaN(r); })) {
+      entry.params.forEach(k => { entry.pr[k] = 2; });
+      if ([1, 2, 3].every(v => { const r = entry.fn(v); return typeof r !== 'number' || isNaN(r); })) {
+        entry.params.forEach(k => { entry.pr[k] = 1; });
+      }
+    }
     return finishEntry(entry);
   }
 
@@ -1451,6 +1589,6 @@ const MathLab = (() => {
   return {
     init, setCategory, addExpr, state, applyScene, CATS,
     // 内部工具：仅测试与高级用法使用
-    _internal: { smartInsert, findZeros, scheduleViewRebuild, safe }
+    _internal: { smartInsert, findZeros, scheduleViewRebuild, safe, entryOf, lastEntry: () => fns[fns.length - 1] || null }
   };
 })();

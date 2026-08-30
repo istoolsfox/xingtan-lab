@@ -74,6 +74,11 @@ body {
 }
 .nav-item:hover { background: rgba(255,255,255,.07); color: #fff; }
 .nav-item.active { background: var(--accent); color: #fff; font-weight: 600; }
+.stage {
+  float: right; font-size: 10.5px; font-weight: 400; color: #9fb0cd;
+  background: rgba(255,255,255,.08); border-radius: 4px; padding: 1px 5px; margin-top: 1px;
+}
+.nav-item.active .stage { color: #fff; background: rgba(255,255,255,.18); }
 .sidebar-footer {
   padding: 12px 14px; border-top: 1px solid rgba(255,255,255,.08);
   display: flex; align-items: center; justify-content: space-between; gap: 8px;

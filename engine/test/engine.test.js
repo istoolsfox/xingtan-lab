@@ -16,7 +16,7 @@ function el() {
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
     addEventListener() {}, appendChild(c) { this.children.push(c); }, remove() {},
     querySelector() { return el(); },
-    querySelectorAll() { return [el(), el()]; },
+    querySelectorAll() { return [el(), el(), el()]; },
     setAttribute() {}, focus() {}, click() {},
     setSelectionRange(a, b) { this.selectionStart = a; this.selectionEnd = b; },
     dispatchEvent() {},
@@ -164,6 +164,45 @@ describe('mathlab', () => {
     assert.ok(fg.parents[1] <= 20 && fg.parents[2] >= 40,
       `定义域应覆盖新视口（实际 ${fg.parents[1]}..${fg.parents[2]}）`);
     bb = [-8, 6, 8, -6];
+  });
+
+  test('全学段函数库：15 个分类、学段标记齐全、每个分类有预设', () => {
+    const cats = Object.values(MathLab.CATS);
+    assert.strictEqual(cats.length, 15);
+    for (const c of cats) {
+      assert.ok(['小学', '初中', '高中', '大学', '拓展'].includes(c.level), `${c.name} level=${c.level}`);
+      assert.ok(c.presets.length >= 2, `${c.name} 预设过少`);
+    }
+  });
+
+  test('所有预设表达式均可解析添加（含新函数/极坐标/隐函数）', () => {
+    const failed = [];
+    let total = 0;
+    for (const c of Object.values(MathLab.CATS)) {
+      for (const p of c.presets) {
+        total++;
+        try { MathLab.addExpr(p.expr); } catch (e) { failed.push(`${c.id}/${p.expr} → ${e.message}`); }
+      }
+    }
+    MathLab.applyScene({ exprs: ['x'] });
+    assert.deepStrictEqual(failed, [], failed.join('；'));
+    assert.ok(total >= 85, `预设总数 ${total}`);
+  });
+
+  test('新内置函数求值正确（cot/sec/csc/gamma/fact）', () => {
+    MathLab.applyScene({ exprs: [] });
+    const at = (expr, x) => {
+      MathLab.addExpr(expr);
+      const v = MathLab._internal.lastEntry().fn(x);
+      MathLab.applyScene({ exprs: [] });
+      return v;
+    };
+    assert.ok(Math.abs(at('sec(x) - 2', Math.PI / 3)) < 1e-9, 'sec(π/3)=2');
+    assert.ok(Math.abs(at('cot(x) - 1', Math.PI / 4)) < 1e-9, 'cot(π/4)=1');
+    assert.ok(Math.abs(at('csc(x) - 2', Math.PI / 6)) < 1e-9, 'csc(π/6)=2');
+    assert.ok(Math.abs(at('gamma(x)', 3) - 2) < 1e-9, 'Γ(3)=2');
+    assert.ok(Math.abs(at('gamma(x)', 0.5) - Math.sqrt(Math.PI)) < 1e-9, 'Γ(1/2)=√π');
+    assert.ok(Math.abs(at('fact(x)', 4) - 24) < 1e-9, '4!=24');
   });
 });
 

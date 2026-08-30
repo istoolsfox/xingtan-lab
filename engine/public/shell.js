@@ -137,7 +137,8 @@
       count = (d.scenes || []).length;
     } catch (e) { /* ignore */ }
     const cards = [
-      { num: '9', lbl: '数学分类（初等 + 高中 + 高等）' },
+      { num: '15', lbl: '数学分类（小学 → 大学全学段）' },
+      { num: '89', lbl: '一键函数预设（含 cot/sec/伽马/阶乘）' },
       { num: '13', lbl: '互动演示（导数/积分/泰勒/傅里叶/向量场…）' },
       { num: String(count), lbl: '我保存的演示' }
     ];
