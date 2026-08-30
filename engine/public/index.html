@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>杏坛学科实验平台</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsxgraph@1.10.1/distrib/jsxgraph.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ================= 登录 ================= -->
+<div id="login-view">
+  <div class="login-card">
+    <div class="login-logo">📐 杏坛学科实验平台</div>
+    <div class="login-sub">语文 · 数学 · 物理 · 化学 · 学科可视化引擎</div>
+    <input id="login-user" placeholder="用户名" maxlength="20" autocomplete="username">
+    <input id="login-pass" type="password" placeholder="密码（至少 4 位）" autocomplete="current-password">
+    <div id="login-err" class="login-err"></div>
+    <div class="login-btns">
+      <button id="btn-login" class="btn primary block">登 录</button>
+      <button id="btn-register" class="btn block">注册新账号</button>
+    </div>
+    <div class="login-tip">每个账号的数据相互独立、互不可见</div>
+  </div>
+</div>
+
+<!-- ================= 应用外壳 ================= -->
+<div id="app-view" class="hidden">
+  <aside id="sidebar">
+    <div class="brand">📐 杏坛<span>学科实验平台</span></div>
+    <nav id="nav">
+      <button class="nav-item" data-page="dashboard">🏠 工作台</button>
+
+      <div class="nav-group">学科模块</div>
+      <button class="nav-item" data-page="chinese">📖 语文<span class="nav-soon">建设中</span></button>
+      <button class="nav-item" data-page="math" data-cat="basic">📐 数学 · ① 基本函数</button>
+      <button class="nav-item sub" data-page="math" data-cat="power">② 幂 · 指数 · 对数</button>
+      <button class="nav-item sub" data-page="math" data-cat="trig">③ 三角函数</button>
+      <button class="nav-item sub" data-page="math" data-cat="calculus">④ 微分与积分</button>
+      <button class="nav-item sub" data-page="math" data-cat="series">⑤ 级数 · 泰勒展开</button>
+      <button class="nav-item sub" data-page="math" data-cat="fourier">⑥ 傅里叶</button>
+      <button class="nav-item sub" data-page="math" data-cat="surface">⑦ 三维曲面</button>
+      <button class="nav-item sub" data-page="math" data-cat="param">⑧ 参数曲线 · 极坐标</button>
+      <button class="nav-item" data-page="geogebra">🧮 GeoGebra 画板</button>
+      <button class="nav-item" data-page="physics">⚛ 物理实验</button>
+      <button class="nav-item" data-page="chem">🧬 化学反应</button>
+
+      <div class="nav-group">个人</div>
+      <button class="nav-item" data-page="mine">📁 我的演示</button>
+    </nav>
+    <div class="sidebar-footer">
+      <span id="who" class="who">—</span>
+      <button id="btn-logout" class="btn tiny ghost">退出登录</button>
+    </div>
+  </aside>
+
+  <main id="content">
+
+    <!-- 工作台 -->
+    <section id="page-dashboard" class="page hidden">
+      <h1 class="page-title">工作台</h1>
+      <p class="page-sub" id="dash-hello"></p>
+      <div class="dash-cards" id="dash-cards"></div>
+      <h2 class="sec-title">快速开始</h2>
+      <div class="dash-quick" id="dash-quick"></div>
+      <h2 class="sec-title">最近保存</h2>
+      <div id="dash-recent" class="mine-list"></div>
+    </section>
+
+    <!-- 数学工作区（所有数学分类共用） -->
+    <section id="page-math" class="page math-page hidden">
+      <div class="math-toolbar">
+        <div class="expr-line">
+          <span class="fx-label" id="expr-label">f(x) =</span>
+          <input id="expr-input" type="text" placeholder="输入表达式，如 a*x^2+b*x+c；可嵌套已有函数如 sin(f(x))；含 y 自动三维" maxlength="80">
+          <button id="btn-add-fn" class="btn primary small">添加</button>
+          <button id="btn-clear-fn" class="btn small">清空</button>
+          <button id="btn-back-fn" class="btn small hidden">← 返回函数列表</button>
+          <button id="math-save" class="btn small">💾 保存演示</button>
+        </div>
+        <div class="view-badge" id="view-badge">二维视图</div>
+        <div class="expr-error" id="expr-error"></div>
+      </div>
+      <div class="math-body">
+        <aside class="preset-pane">
+          <h3 id="preset-cat-title">分类</h3>
+          <div id="preset-list" class="preset-list"></div>
+          <h3 id="demo-title" class="hidden">互动演示</h3>
+          <div id="demo-list" class="preset-list"></div>
+        </aside>
+        <div class="plot-area">
+          <div class="view-tools hidden" id="view-tools">
+            <button id="view-zi" class="btn tiny" title="放大">＋</button>
+            <button id="view-zo" class="btn tiny" title="缩小">－</button>
+            <button id="view-reset" class="btn tiny" title="复位视图">复位</button>
+          </div>
+          <div id="plot2d" class="jxgbox plot2d"></div>
+          <canvas id="plot3d" class="plot3d hidden" width="860" height="540"></canvas>
+          <div id="demo-bar" class="demo-bar hidden"></div>
+        </div>
+        <aside class="param-pane">
+          <h3>函数列表</h3>
+          <div id="fn-list" class="fn-list"></div>
+          <div class="tip-3d">添加函数时自动命名 f、g、h…，表达式中引用已有函数名即可嵌套，如 g(x) = sin(f(x))。</div>
+          <h3>选中函数</h3>
+          <div id="fn-inspect" class="fn-inspect"></div>
+          <h3 class="hidden" id="c3-title">三维控制</h3>
+          <div id="controls-3d" class="hidden">
+            <label class="slider-line">缩放 <input type="range" id="c3-zoom" min="40" max="160" value="86"><span id="c3-zoom-v"></span></label>
+            <div class="btn-row">
+              <button id="c3-reset" class="btn small">重置视角</button>
+              <button id="c3-spin" class="btn small">自动旋转</button>
+            </div>
+            <div class="tip-3d">鼠标拖拽旋转视角 · 滚轮缩放</div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- 物理 -->
+    <section id="page-physics" class="page hidden">
+      <h1 class="page-title">物理实验 <span class="badge-dev">拓展模块</span></h1>
+      <div class="lab-body">
+        <aside class="side">
+          <h3>内置实验</h3>
+          <div id="phy-templates" class="template-list"></div>
+          <h3>参数</h3>
+          <div id="phy-params" class="param-list"></div>
+          <div class="global-controls">
+            <label class="slider-line">重力 g <input type="range" id="phy-gravity" min="0" max="20" step="0.1" value="9.8"><span id="phy-gravity-v">9.8</span></label>
+            <label class="check-line"><input type="checkbox" id="phy-vectors" checked> 显示速度矢量</label>
+            <label class="check-line"><input type="checkbox" id="phy-trails"> 显示运动轨迹</label>
+            <div class="btn-row">
+              <button id="phy-play" class="btn small">⏸ 暂停</button>
+              <button id="phy-reset" class="btn small">↺ 重置</button>
+              <button id="phy-save" class="btn small primary">💾 保存</button>
+            </div>
+          </div>
+        </aside>
+        <div class="lab-stage"><canvas id="phy-canvas" width="900" height="520"></canvas>
+          <div id="phy-hud" class="hud"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 化学 -->
+    <section id="page-chem" class="page hidden">
+      <h1 class="page-title">化学反应 · 宏观与微观 <span class="badge-dev">拓展模块</span></h1>
+      <div class="lab-body">
+        <aside class="side">
+          <h3>反应演示</h3>
+          <div id="chem-reactions" class="template-list"></div>
+          <div class="note-box">
+            <strong>双视图联动</strong><br>上：宏观实验现象<br>下：微观分子变化<br>同一时间轴驱动。
+          </div>
+          <button id="chem-save" class="btn small primary">💾 保存当前演示</button>
+        </aside>
+        <div class="lab-stage col">
+          <div class="panel-title" id="chem-equation"></div>
+          <canvas id="chem-macro" width="900" height="290"></canvas>
+          <canvas id="chem-micro" width="900" height="290"></canvas>
+          <div class="playback">
+            <button id="chem-prev" class="btn small">⏮ 上一步</button>
+            <button id="chem-play" class="btn small primary">▶ 播放</button>
+            <button id="chem-next" class="btn small">⏭ 下一步</button>
+            <div id="chem-dots" class="dots"></div>
+          </div>
+          <div id="chem-caption" class="caption"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GeoGebra 画板 -->
+    <section id="page-geogebra" class="page hidden">
+      <div class="lab-body" style="height:calc(100vh - 60px);">
+        <aside class="side">
+          <h3>画板类型</h3>
+          <div id="ggb-types" class="template-list"></div>
+          <div class="note-box">
+            <strong>GeoGebra 全功能数学套件</strong><br>
+            隐函数（x²+y²=25）、极坐标、方程求解、几何作图与变换、3D 曲面、CAS 符号计算、概率统计…由 GeoGebra 官方网页版驱动（需联网加载）。
+          </div>
+          <button id="ggb-save" class="btn small primary">💾 保存画板到账号</button>
+          <h3>我的 GeoGebra 画板</h3>
+          <div id="ggb-mine" class="template-list"></div>
+        </aside>
+        <div class="lab-stage">
+          <div id="ggb-app" class="ggb-app"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 语文（建设中） -->
+    <section id="page-chinese" class="page hidden">
+      <h1 class="page-title">语文模块 <span class="badge-dev">建设中</span></h1>
+      <p class="page-sub">按「一个学科一个模块」的节奏开发：古诗文意境、课文脉络图、写作框架等可视化演示将陆续上线。</p>
+      <div class="mine-empty">当前主攻数学模块，语文模块随后开工。</div>
+    </section>
+
+    <!-- 我的演示 -->
+    <section id="page-mine" class="page hidden">
+      <h1 class="page-title">我的演示 <span class="muted" id="mine-user"></span></h1>
+      <div id="mine-list" class="mine-list"></div>
+    </section>
+
+  </main>
+</div>
+
+<div id="toast" class="hidden"></div>
+
+<!-- 输入弹窗 -->
+<div id="ask-modal" class="hidden">
+  <div class="ask-card">
+    <div class="ask-title" id="ask-title">保存演示</div>
+    <input id="ask-input" maxlength="30" placeholder="输入名称">
+    <div class="ask-btns">
+      <button id="ask-cancel" class="btn small">取消</button>
+      <button id="ask-ok" class="btn primary small">确定</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsxgraph@1.10.1/distrib/jsxgraphcore.js"></script>
+<script src="chemistry.js"></script>
+<script src="physics.js"></script>
+<script src="surface3d.js"></script>
+<script src="mathlab.js"></script>
+<script src="shell.js"></script>
+</body>
+</html>

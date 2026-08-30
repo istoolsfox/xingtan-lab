@@ -1,0 +1,5 @@
+{
+  "glmApiKey": "在此填入你的 GLM API Key（格式：id.secret），或使用环境变量 XINGTAN_GLM_KEY",
+  "glmModel": "glm-4-flash",
+  "note": "此文件为模板。复制为 config.json 并填入自己的密钥；config.json 已被 .gitignore 排除，请勿提交真实密钥。"
+}

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>杏坛教师助手 · 课件演示</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsxgraph@1.10.1/distrib/jsxgraph.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- 顶栏 -->
+<header id="topbar">
+  <div class="logo">🎓 杏坛教师助手 <span class="tag">课件演示原型 v0.1</span></div>
+  <div class="topbar-actions" id="topbar-actions"></div>
+</header>
+
+<!-- 首页 -->
+<main id="home-view" class="view">
+  <section class="hero">
+    <h1>3 分钟，生成一节可上课的课件</h1>
+    <p>按教材对齐生成 PPT，数学/物理/化学自带<strong>可交互的课堂演示</strong>。先选教材，再输课题。</p>
+  </section>
+
+  <section class="gen-card">
+    <div class="form-grid">
+      <label>学段
+        <select id="f-stage">
+          <option>小学</option>
+          <option selected>初中</option>
+          <option>高中</option>
+        </select>
+      </label>
+      <label>年级
+        <select id="f-grade"></select>
+      </label>
+      <label>学科
+        <select id="f-subject">
+          <option>语文</option>
+          <option>数学</option>
+          <option selected>物理</option>
+          <option>化学</option>
+          <option>英语</option>
+          <option>历史</option>
+          <option>生物</option>
+          <option>地理</option>
+        </select>
+      </label>
+      <label>教材版本
+        <select id="f-textbook">
+          <option selected>人教版</option>
+          <option>部编版</option>
+          <option>北师大版</option>
+          <option>沪科版</option>
+          <option>苏教版</option>
+          <option>粤教版</option>
+        </select>
+      </label>
+    </div>
+    <label class="topic-line">课题
+      <input id="f-topic" type="text" placeholder="例如：二次函数的图像与性质 / 大气的压强 / 氧气的性质" maxlength="40">
+    </label>
+    <div class="quick-topics">
+      试试：
+      <button class="chip" data-topic="二次函数的图像与性质" data-subject="数学">二次函数的图像与性质</button>
+      <button class="chip" data-topic="大气压强" data-subject="物理">大气压强</button>
+      <button class="chip" data-topic="质量守恒定律" data-subject="化学">质量守恒定律</button>
+      <button class="chip" data-topic="使至塞上" data-subject="语文">使至塞上（语文意境）</button>
+    </div>
+    <button id="btn-generate" class="btn primary big">✨ AI 生成课件</button>
+    <div id="gen-status" class="gen-status hidden"></div>
+  </section>
+
+  <section class="recent" id="recent-section">
+    <h2>我的课件 <span class="muted">（保存在本机浏览器）</span></h2>
+    <div id="recent-list" class="recent-list"></div>
+  </section>
+</main>
+
+<!-- 编辑器 -->
+<main id="editor-view" class="view hidden">
+  <aside id="slide-list"></aside>
+  <section class="editor-main">
+    <div class="editor-toolbar">
+      <button id="btn-back" class="btn ghost">← 首页</button>
+      <span id="editor-title" class="editor-deck-title"></span>
+      <span class="spacer"></span>
+      <button id="btn-save" class="btn ghost">💾 保存</button>
+      <button id="btn-export" class="btn ghost">⬇ 导出 PPT</button>
+      <button id="btn-present" class="btn primary">▶ 演示模式</button>
+    </div>
+    <div class="slide-stage"><div id="slide-preview"></div></div>
+    <div id="slide-note" class="slide-note"></div>
+  </section>
+</main>
+
+<!-- 演示模式 -->
+<div id="present-overlay" class="hidden">
+  <div id="present-stage"></div>
+  <div class="present-hud">
+    <span id="present-progress"></span>
+    <span class="spacer"></span>
+    <button id="btn-exit-present" class="btn ghost small">退出演示 (Esc)</button>
+  </div>
+  <button class="present-nav left" id="nav-prev">‹</button>
+  <button class="present-nav right" id="nav-next">›</button>
+</div>
+
+<div id="toast" class="hidden"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsxgraph@1.10.1/distrib/jsxgraphcore.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script src="demos.js"></script>
+<script src="export.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

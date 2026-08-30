@@ -1,0 +1,12 @@
+# 密钥与私密配置（绝不入库）
+prototype/config.json
+*.key
+密钥*.md
+
+# 运行时数据（账号/演示按用户存储）
+engine/data/
+prototype/exports/
+
+# 系统与编辑器
+Thumbs.db
+.DS_Store
