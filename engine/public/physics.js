@@ -317,9 +317,16 @@ const Physics = (() => {
     trailMap = new Map();
     drawExtra = null;
     const tpl = TEMPLATES.find(t => t.id === templateId) || TEMPLATES[0];
-    // 参数归一
+    // 参数归一 + 防御：场景参数可能来自保存的 JSON，clamp 到模板声明范围并强制数字
     const p = {};
-    tpl.params.forEach(pd => { p[pd.key] = params[pd.key] !== undefined ? params[pd.key] : pd.value; });
+    tpl.params.forEach(pd => {
+      let v = params[pd.key] !== undefined ? params[pd.key] : pd.value;
+      v = parseFloat(v);
+      if (isNaN(v) || !isFinite(v)) v = pd.value;
+      v = Math.max(pd.min, Math.min(pd.max, v));
+      p[pd.key] = v;
+      params[pd.key] = v;
+    });
     current = tpl.setup(p);
   }
 

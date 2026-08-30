@@ -134,9 +134,9 @@ function readScenes(user) {
 function writeScenes(user, list) { safeWrite(scenesFile(user), JSON.stringify(list.slice(0, 200))); }
 
 // ---------- HTTP 基础 ----------
-function send(res, code, data, type) {
+function send(res, code, data, type, extraHeaders) {
   const body = type ? data : JSON.stringify(data);
-  res.writeHead(code, { 'Content-Type': type || 'application/json; charset=utf-8' });
+  res.writeHead(code, Object.assign({ 'Content-Type': type || 'application/json; charset=utf-8' }, extraHeaders || {}));
   res.end(body);
 }
 function readBody(req) {
@@ -247,7 +247,9 @@ const server = http.createServer(async (req, res) => {
     if (!file.startsWith(PUB)) return send(res, 403, { ok: false, error: 'forbidden' });
     fs.readFile(file, (err, data) => {
       if (err) return send(res, 404, { ok: false, error: 'not found' });
-      send(res, 200, data, MIME[path.extname(file)] || 'application/octet-stream');
+      // 全部静态资源 no-cache：教学服务带宽无虞，正确性优先——
+      // 否则发版后浏览器旧 JS 配新 HTML/数据，曾复现"旧 physics.js 无参数防御 + 恶意场景参数杀死渲染循环"
+      send(res, 200, data, MIME[path.extname(file)] || 'application/octet-stream', { 'Cache-Control': 'no-cache' });
     });
   } catch (e) {
     log.error('server', 'unhandled request error', e);
