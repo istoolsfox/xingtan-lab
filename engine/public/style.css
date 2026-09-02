@@ -432,3 +432,34 @@ body.present .ggb-app { min-width: 0; }
 /* 投屏时画布随窗口拉伸（位图放大轻微发虚，但可视面积优先） */
 body.present #phy-canvas, body.present #chem-macro, body.present #chem-micro,
 body.present #cn-scene, body.present #plot3d { max-width: 100%; height: auto; }
+
+/* ---------- 课堂工具 ---------- */
+.ct-names {
+  width: 100%; font: inherit; font-size: 13px; line-height: 1.8; color: var(--ink);
+  padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; outline: none;
+  resize: vertical; margin-bottom: 10px;
+}
+.ct-names:focus { border-color: var(--accent); }
+#ct-roster-info { margin-top: 10px; }
+#ct-roster-info b { color: var(--accent-deep); }
+#ct-reset-drawn { margin-top: 8px; }
+.ct-slot {
+  min-height: 170px; width: 100%; display: flex; align-items: center; justify-content: center;
+  font-size: 68px; font-weight: 800; letter-spacing: 8px; color: var(--ink);
+  background: var(--accent-soft); border-radius: 16px; padding: 36px 24px; text-align: center;
+}
+.ct-slot.hit { animation: ct-pop .5s ease; color: var(--accent-deep); }
+@keyframes ct-pop { 0% { transform: scale(.55); opacity: .15; } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+.ct-history { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; min-height: 26px; }
+.ct-history span {
+  font-size: 12.5px; color: var(--ink-2); background: #fff;
+  border: 1px solid var(--line); border-radius: 12px; padding: 3px 11px;
+}
+.ct-clock {
+  font: 800 120px/1 Consolas, monospace; color: var(--ink); letter-spacing: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.ct-clock.warn { color: var(--danger); animation: ct-blink 1s steps(2) infinite; }
+@keyframes ct-blink { 50% { opacity: .4; } }
+.ct-timer-pane { justify-content: center; gap: 28px; padding: 60px 0; }
+.ct-timer-ops { justify-content: center; margin: 0; }

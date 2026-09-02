@@ -61,6 +61,7 @@
       <button class="nav-item" data-page="geogebra">🧮 GeoGebra 画板</button>
       <button class="nav-item" data-page="physics">⚛ 物理实验</button>
       <button class="nav-item" data-page="chem">🧬 化学反应</button>
+      <button class="nav-item" data-page="classroom">🎯 课堂工具</button>
 
       <div class="nav-group">个人</div>
       <button class="nav-item" data-page="mine">📁 我的演示</button>
@@ -325,6 +326,54 @@
       </div>
     </section>
 
+    <!-- 课堂工具 -->
+    <section id="page-classroom" class="page hidden">
+      <h1 class="page-title">课堂工具 <span class="badge-dev">新模块</span></h1>
+      <div class="chem-tabs">
+        <button class="ct-tab active" data-ct-tab="pick">🎯 随机点名</button>
+        <button class="ct-tab" data-ct-tab="timer">⏱ 课堂计时</button>
+      </div>
+      <div id="ct-pane-pick" class="chem-pane">
+        <div class="lab-body">
+          <aside class="side">
+            <h3>学生名单</h3>
+            <textarea id="ct-names" class="ct-names" rows="10" placeholder="每行一个姓名，也可用逗号、顿号分隔"></textarea>
+            <div class="btn-row">
+              <button id="ct-parse" class="btn small primary">导入名单</button>
+              <button id="classroom-save" class="btn small">💾 保存名单</button>
+            </div>
+            <div id="ct-roster-info" class="note-box">共 0 名学生</div>
+            <label class="check-line"><input type="checkbox" id="ct-norepeat" checked> 不重复抽取（抽过的不再出现）</label>
+            <button id="ct-reset-drawn" class="btn small">↺ 重置抽取记录</button>
+          </aside>
+          <div class="lab-stage col">
+            <div id="ct-slot" class="ct-slot">点击「开始点名」</div>
+            <div class="playback">
+              <button id="ct-go" class="btn primary">🎲 开始点名</button>
+            </div>
+            <div id="ct-history" class="ct-history"></div>
+          </div>
+        </div>
+      </div>
+      <div id="ct-pane-timer" class="chem-pane hidden">
+        <div class="lab-stage col ct-timer-pane">
+          <div id="ct-clock" class="ct-clock">05:00</div>
+          <div class="btn-row ct-timer-ops">
+            <button class="btn small ct-preset" data-min="1">1 分钟</button>
+            <button class="btn small ct-preset" data-min="3">3 分钟</button>
+            <button class="btn small ct-preset" data-min="5">5 分钟</button>
+            <button class="btn small ct-preset" data-min="10">10 分钟</button>
+            <button class="btn small" id="ct-t-plus">+30 秒</button>
+          </div>
+          <div class="playback">
+            <button id="ct-t-start" class="btn primary">▶ 开始倒计时</button>
+            <button id="ct-t-reset" class="btn small">↺ 重置</button>
+          </div>
+          <div class="caption" id="ct-t-hint">讨论、练习、小组活动计时。最后 10 秒变红，结束有提示音。</div>
+        </div>
+      </div>
+    </section>
+
     <!-- 我的演示 -->
     <section id="page-mine" class="page hidden">
       <h1 class="page-title">我的演示 <span class="muted" id="mine-user"></span></h1>
@@ -357,6 +406,7 @@
 <script src="periodic.js"></script>
 <script src="mol3.js"></script>
 <script src="chinese.js"></script>
+<script src="classroom.js"></script>
 <script src="chemistry.js"></script>
 <script src="physics.js"></script>
 <script src="surface3d.js"></script>

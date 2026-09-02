@@ -10,7 +10,7 @@
 
   let token = localStorage.getItem(TOKEN_KEY) || '';
   let me = null;
-  let inited = { math: false, physics: false, chem: false, geogebra: false, chinese: false };
+  let inited = { math: false, physics: false, chem: false, geogebra: false, chinese: false, classroom: false };
   let currentPage = 'dashboard';
   let ggbType = 'graphing';
   const GGB_TYPES = [
@@ -102,6 +102,7 @@
     $$('#nav .nav-item').forEach(b => b.addEventListener('click', () => gotoPage(b.dataset.page, b.dataset.cat)));
     $('#math-save').addEventListener('click', saveScene);
     $('#chinese-save').addEventListener('click', saveScene);
+    $('#classroom-save').addEventListener('click', saveScene);
     $('#dash-hello').textContent = '';
     bindMathCatSelect();
     bindPresent();
@@ -254,6 +255,8 @@
       if (!inited.chem) { initChem(); inited.chem = true; }
     } else if (page === 'chinese') {
       if (!inited.chinese) { Chinese.init(); inited.chinese = true; }
+    } else if (page === 'classroom') {
+      if (!inited.classroom) { Classroom.init(); inited.classroom = true; }
     } else if (page === 'geogebra') {
       if (!inited.geogebra) { initGeoGebra(); inited.geogebra = true; }
       renderGgbMine();
@@ -299,6 +302,7 @@
       { type: 'physics', tpl: 'fall-vs-projectile', t: '平抛 vs 自由落体', d: '同时释放，看谁先落地' },
       { type: 'physics', tpl: 'optics-refraction', t: '光的折射与全反射', d: '调入射角与介质，实时画光线' },
       { type: 'chinese', poem: 'jingyesi', t: '《静夜思》意境图', d: '逐句注释 + 动态月夜画面' },
+      { type: 'classroom', t: '随机点名', d: '导入名单，不重复抽取' },
       { type: 'geogebra', t: 'GeoGebra 画板', d: '几何作图 / 3D / CAS 符号计算' }
     ];
     const q = $('#dash-quick');
@@ -343,6 +347,8 @@
     } else if (c.type === 'chinese') {
       gotoPage('chinese');
       setTimeout(() => Chinese.applyScene({ tab: 'poem', poem: c.poem }), 80);
+    } else if (c.type === 'classroom') {
+      gotoPage('classroom');
     } else if (c.type === 'geogebra') {
       gotoPage('geogebra');
     }
@@ -460,6 +466,13 @@
       const poem = (st.poem && document.querySelector(`#cn-poem-list .template-item.active .t`) || {}).textContent;
       return { kind: 'chinese', subject: '语文', tab: st.tab, poem: st.poem, title: (st.tab === 'poem' && poem ? poem : '语文演示') };
     }
+    if (currentPage === 'classroom') {
+      const st = Classroom.state();
+      // 计时页/空名单没有可保存的内容
+      if (!st.names) return null;
+      return { kind: 'classroom', subject: '课堂工具', tab: st.tab, names: st.names,
+        noRepeat: st.noRepeat, title: `随机名单（${st.names.length}人）` };
+    }
     return null;
   }
 
@@ -513,10 +526,11 @@
       ? Object.values(s.params || {}).join(' / ')
       : s.kind === 'math' ? (s.exprs || []).join(' ｜ ').slice(0, 70)
       : s.kind === 'chinese' ? '语文 · ' + (s.tab === 'poem' ? '古诗文' : s.tab === 'outline' ? '课文脉络' : '写作框架')
-        : s.kind === 'geogebra' ? ggbTypeName(s.appType)
-          : (s.reaction || '');
+      : s.kind === 'classroom' ? `随机名单 · ${(s.names || []).length} 人`
+      : s.kind === 'geogebra' ? ggbTypeName(s.appType)
+        : (s.reaction || '');
     card.innerHTML = `
-      <span class="subj">${esc(s.subject || ({ math: '数学', physics: '物理', chem: '化学', chinese: '语文', geogebra: 'GeoGebra' }[s.kind] || ''))}</span>
+      <span class="subj">${esc(s.subject || ({ math: '数学', physics: '物理', chem: '化学', chinese: '语文', classroom: '课堂工具', geogebra: 'GeoGebra' }[s.kind] || ''))}</span>
       <div class="t">${esc(s.title)}</div>
       <div class="m">${esc(meta || '')}</div>
       <div class="ops">
@@ -534,7 +548,7 @@
 
   // 我的演示：按学科筛选（全部/数学/物理/化学/语文/GeoGebra）
   let mineFilter = 'all';
-  const MINE_KINDS = [['all', '全部'], ['math', '数学'], ['physics', '物理'], ['chem', '化学'], ['chinese', '语文'], ['geogebra', 'GeoGebra']];
+  const MINE_KINDS = [['all', '全部'], ['math', '数学'], ['physics', '物理'], ['chem', '化学'], ['chinese', '语文'], ['classroom', '课堂工具'], ['geogebra', 'GeoGebra']];
 
   async function renderMine() {
     $('#mine-user').textContent = `（${me}）`;
@@ -589,6 +603,9 @@
     } else if (s.kind === 'chinese') {
       gotoPage('chinese');
       setTimeout(() => Chinese.applyScene(s), 80);
+    } else if (s.kind === 'classroom') {
+      gotoPage('classroom');
+      setTimeout(() => Classroom.applyScene(s), 80);
     } else if (s.kind === 'geogebra') {
       gotoPage('geogebra');
       setTimeout(() => {

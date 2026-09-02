@@ -267,6 +267,23 @@ describe('chemistry', () => {
   });
 });
 
+// ---------- 课堂工具（名单解析纯函数） ----------
+describe('classroom', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'classroom.js'), 'utf8')
+    .replace('return { init, state, applyScene, _internal: { parseNames } };', 'return { init, state, applyScene, __t: { parseNames } };')
+    + ';globalThis.ClassroomMod = Classroom;';
+  (0, eval)(src);
+  const parse = globalThis.ClassroomMod.__t.parseNames;
+
+  test('名单解析：换行/逗号/顿号/分号分隔，去空去重，保留姓名内部空格', () => {
+    assert.deepStrictEqual(parse('张三\n李四，王五、张三；赵六'),
+      ['张三', '李四', '王五', '赵六']);
+    assert.deepStrictEqual(parse('  \n\n'), []);
+    assert.deepStrictEqual(parse('Tom Smith'), ['Tom Smith']);
+    assert.deepStrictEqual(parse('张三\r\n张三'), ['张三']);
+  });
+});
+
 // ---------- 语文模块（数据健全性：新增条目只需加数据，此处保证不写错字段） ----------
 describe('chinese', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'chinese.js'), 'utf8')
