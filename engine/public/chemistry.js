@@ -12,7 +12,9 @@ const ChemEngine = (() => {
     C: { color: '#8a94a6', r: 16, label: 'C' },
     S: { color: '#e3c02f', r: 14, label: 'S' },
     Fe: { color: '#8d99ae', r: 16, label: 'Fe' },
-    Cu: { color: '#e0862e', r: 16, label: 'Cu' }
+    Cu: { color: '#e0862e', r: 16, label: 'Cu' },
+    Na: { color: '#ab5cf2', r: 15, label: 'Na' },
+    Cl: { color: '#3fae6e', r: 14, label: 'Cl' }
   };
   // 分子几何：局部坐标 + 键（原子局部索引对 + 键级）
   const MOLS = {
@@ -316,8 +318,7 @@ const ChemEngine = (() => {
       captions: [
         '反应前：铁钉浸入蓝色溶液，Cu²⁺ 与 SO₄²⁻（旁观离子）在水中运动',
         '反应本质：Fe 失 2e⁻ → Fe²⁺；Cu²⁺ 得 2e⁻ → Cu（电子转移）',
-        '宏观：红色铜覆盖在铁钉表面，溶液由蓝色变为浅绿色',
-        '金属活动性：Fe > Cu；质量守恒——铁溶解多少，铜就析出多少'
+        '宏观：红色铜覆盖铁钉表面，溶液由蓝变浅绿；金属活动性 Fe > Cu，质量守恒'
       ],
       stages: [
         // 0  Fe 原子（左，代表铁钉表面）+ Cu²⁺（中）+ SO₄²⁻（右）
@@ -360,6 +361,149 @@ const ChemEngine = (() => {
             macro: 2
           };
         }
+      ]
+    },
+    {
+      id: 'neutralization',
+      title: '酸碱中和（盐酸与氢氧化钠）',
+      equation: 'HCl + NaOH → NaCl + H₂O',
+      macro: 'neutral',
+      nAtoms: 10,
+      captions: [
+        '反应前：盐酸（HCl）滴入含酚酞的氢氧化钠（NaOH）溶液，碱液显红色',
+        '解离：酸碱在水中解离出 H⁺、Cl⁻、Na⁺、OH⁻——中和的实质从这里开始',
+        '中和实质：H⁺ + OH⁻ → H₂O；Na⁺、Cl⁻ 是旁观离子，仍留在溶液中',
+        '宏观：红色恰好褪去，溶液呈中性——酸与碱完全反应，生成盐和水'
+      ],
+      // 元素序列（各阶段必须一致）：H,Cl,H,Cl,Na,O,H,Na,O,H —— 2×HCl + 2×NaOH
+      stages: [
+        // 0  2 个 HCl（左）+ 2 个 NaOH（右）
+        () => ({
+          atoms: [
+            { el: 'H', x: 280 - 11, y: 110 }, { el: 'Cl', x: 280 + 11, y: 110 },
+            { el: 'H', x: 280 - 11, y: 215 }, { el: 'Cl', x: 280 + 11, y: 215 },
+            { el: 'Na', x: 620 - 24, y: 105 }, { el: 'O', x: 620, y: 105 }, { el: 'H', x: 634, y: 117 },
+            { el: 'Na', x: 620 - 24, y: 225 }, { el: 'O', x: 620, y: 225 }, { el: 'H', x: 634, y: 237 }
+          ],
+          bonds: [
+            { a: 0, b: 1, order: 1 }, { a: 2, b: 3, order: 1 },
+            { a: 4, b: 5, order: 1 }, { a: 5, b: 6, order: 1 },
+            { a: 7, b: 8, order: 1 }, { a: 8, b: 9, order: 1 }
+          ],
+          macro: 0
+        }),
+        // 1  解离：自由离子（键全部断裂）
+        () => ({
+          atoms: [
+            { el: 'H', x: 160, y: 90 }, { el: 'Cl', x: 250, y: 170 },
+            { el: 'H', x: 210, y: 250 }, { el: 'Cl', x: 330, y: 90 },
+            { el: 'Na', x: 660, y: 80 }, { el: 'O', x: 580, y: 160 }, { el: 'H', x: 600, y: 200 },
+            { el: 'Na', x: 720, y: 200 }, { el: 'O', x: 640, y: 250 }, { el: 'H', x: 540, y: 100 }
+          ],
+          bonds: [], macro: 1
+        }),
+        // 2  重组：2 个 H₂O（H0/H6/O5、H2/H9/O8）+ 2 个 NaCl（Na4/Cl1、Na7/Cl3）
+        () => ({
+          atoms: [
+            { el: 'H', x: 250 - 15, y: 134 }, { el: 'Cl', x: 664, y: 120 },
+            { el: 'H', x: 450 - 15, y: 134 }, { el: 'Cl', x: 664, y: 230 },
+            { el: 'Na', x: 636, y: 120 }, { el: 'O', x: 250, y: 120 }, { el: 'H', x: 250 + 15, y: 134 },
+            { el: 'Na', x: 636, y: 230 }, { el: 'O', x: 450, y: 120 }, { el: 'H', x: 450 + 15, y: 134 }
+          ],
+          bonds: [
+            { a: 5, b: 0, order: 1 }, { a: 5, b: 6, order: 1 },
+            { a: 8, b: 2, order: 1 }, { a: 8, b: 9, order: 1 },
+            { a: 4, b: 1, order: 1 }, { a: 7, b: 3, order: 1 }
+          ],
+          macro: 2
+        }),
+        // 3  产物分离：水分子聚在下方，盐离子分散在上方
+        () => ({
+          atoms: [
+            { el: 'H', x: 300 - 15, y: 234 }, { el: 'Cl', x: 674, y: 90 },
+            { el: 'H', x: 480 - 15, y: 234 }, { el: 'Cl', x: 754, y: 170 },
+            { el: 'Na', x: 646, y: 90 }, { el: 'O', x: 300, y: 220 }, { el: 'H', x: 300 + 15, y: 234 },
+            { el: 'Na', x: 726, y: 170 }, { el: 'O', x: 480, y: 220 }, { el: 'H', x: 480 + 15, y: 234 }
+          ],
+          bonds: [
+            { a: 5, b: 0, order: 1 }, { a: 5, b: 6, order: 1 },
+            { a: 8, b: 2, order: 1 }, { a: 8, b: 9, order: 1 },
+            { a: 4, b: 1, order: 1 }, { a: 7, b: 3, order: 1 }
+          ],
+          macro: 3
+        })
+      ]
+    },
+    {
+      id: 'co-reduce-cuo',
+      title: '一氧化碳还原氧化铜',
+      equation: 'CO + CuO —Δ→ Cu + CO₂',
+      macro: 'co-reduce',
+      nAtoms: 8,
+      captions: [
+        '反应前：黑色氧化铜粉末装在玻璃管中，通入一氧化碳气体',
+        '加热：CO 夺取 CuO 中的氧——CO 是还原剂，CuO 被还原成 Cu',
+        '宏观：黑色粉末逐渐变红（生成铜），CO₂ 使澄清石灰水变浑浊',
+        '尾气必须点燃处理：CO 有毒，直接排放会污染空气'
+      ],
+      // 元素序列（各阶段必须一致）：C,O,C,O,Cu,O,Cu,O —— 2×CO + 2×CuO
+      stages: [
+        // 0  2 个 CO（左）+ 2 个 CuO（右）
+        () => ({
+          atoms: [
+            { el: 'C', x: 200 - 14, y: 100 }, { el: 'O', x: 200 + 14, y: 100 },
+            { el: 'C', x: 200 - 14, y: 200 }, { el: 'O', x: 200 + 14, y: 200 },
+            { el: 'Cu', x: 560, y: 120 }, { el: 'O', x: 592, y: 120 },
+            { el: 'Cu', x: 560, y: 220 }, { el: 'O', x: 592, y: 220 }
+          ],
+          bonds: [
+            { a: 0, b: 1, order: 2 }, { a: 2, b: 3, order: 2 },
+            { a: 4, b: 5, order: 1 }, { a: 6, b: 7, order: 1 }
+          ],
+          macro: 0
+        }),
+        // 1  加热：CO 分子靠近 CuO（夺取氧的前一刻）
+        () => ({
+          atoms: [
+            { el: 'C', x: 380 - 14, y: 110 }, { el: 'O', x: 380 + 14, y: 110 },
+            { el: 'C', x: 380 - 14, y: 210 }, { el: 'O', x: 380 + 14, y: 210 },
+            { el: 'Cu', x: 560, y: 120 }, { el: 'O', x: 592, y: 120 },
+            { el: 'Cu', x: 560, y: 220 }, { el: 'O', x: 592, y: 220 }
+          ],
+          bonds: [
+            { a: 0, b: 1, order: 2 }, { a: 2, b: 3, order: 2 },
+            { a: 4, b: 5, order: 1 }, { a: 6, b: 7, order: 1 }
+          ],
+          macro: 1
+        }),
+        // 2  夺氧完成：CO 保留自身 O 并夺取 CuO 的 O → CO₂（O-C-O）；Cu 游离析出
+        () => ({
+          atoms: [
+            { el: 'C', x: 686, y: 120 }, { el: 'O', x: 686 - 28, y: 120 },
+            { el: 'C', x: 686, y: 220 }, { el: 'O', x: 686 - 28, y: 220 },
+            { el: 'Cu', x: 560, y: 120 }, { el: 'O', x: 686 + 28, y: 120 },
+            { el: 'Cu', x: 560, y: 220 }, { el: 'O', x: 686 + 28, y: 220 }
+          ],
+          bonds: [
+            { a: 0, b: 1, order: 2 }, { a: 0, b: 5, order: 2 },
+            { a: 2, b: 3, order: 2 }, { a: 2, b: 7, order: 2 }
+          ],
+          macro: 2
+        }),
+        // 3  产物分离：CO₂ 上浮散开，红色铜留在管内
+        () => ({
+          atoms: [
+            { el: 'C', x: 626, y: 60 }, { el: 'O', x: 598, y: 60 },
+            { el: 'C', x: 766, y: 100 }, { el: 'O', x: 738, y: 100 },
+            { el: 'Cu', x: 540, y: 150 }, { el: 'O', x: 654, y: 60 },
+            { el: 'Cu', x: 560, y: 230 }, { el: 'O', x: 794, y: 100 }
+          ],
+          bonds: [
+            { a: 0, b: 1, order: 2 }, { a: 0, b: 5, order: 2 },
+            { a: 2, b: 3, order: 2 }, { a: 2, b: 7, order: 2 }
+          ],
+          macro: 3
+        })
       ]
     }
   ];
@@ -453,6 +597,138 @@ const ChemEngine = (() => {
     else if (reaction.macro === 'charcoal') drawCharcoal(ctx, st, time, W, H);
     else if (reaction.macro === 'methane') drawMethane(ctx, st, time, W, H);
     else if (reaction.macro === 'displacement') drawDisplacement(ctx, st, time, W, H);
+    else if (reaction.macro === 'neutral') drawNeutral(ctx, st, time, W, H);
+    else if (reaction.macro === 'co-reduce') drawCoReduce(ctx, st, time, W, H);
+  }
+
+  // 酸碱中和：0 红色碱液 + 滴加盐酸 → 1 解离 → 2 中和进行中 → 3 恰好中和（无色）
+  function drawNeutral(ctx, st, time) {
+    const mix = st.macroMix;
+    const cur = mix.from + (mix.to - mix.from) * mix.t;               // 总进度 0..3
+    const red = 0.75 * Math.max(0, 1 - Math.max(0, cur - 0.4) / 2.2); // 酚酞红色随中和进度褪去
+    const bx = 280, bw = 340, bot = 252;
+    // 烧杯
+    ctx.strokeStyle = '#8a97a8'; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(bx, 96); ctx.lineTo(bx, bot); ctx.lineTo(bx + bw, bot); ctx.lineTo(bx + bw, 96);
+    ctx.stroke();
+    // 溶液（红 → 无色）
+    ctx.fillStyle = `rgba(226,96,110,${Math.max(0.05, red)})`;
+    ctx.fillRect(bx + 3, 140, bw - 6, bot - 143);
+    ctx.strokeStyle = `rgba(226,96,110,${Math.min(0.9, red + 0.15)})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(bx + 3, 140); ctx.lineTo(bx + bw - 3, 140); ctx.stroke();
+    // 胶头滴管：只在反应初期滴加盐酸
+    if (cur < 1.2) {
+      ctx.fillStyle = '#4a5261';
+      ctx.fillRect(bx + bw / 2 - 7, 20, 14, 26);
+      ctx.beginPath();
+      ctx.moveTo(bx + bw / 2 - 5, 46); ctx.lineTo(bx + bw / 2 + 5, 46); ctx.lineTo(bx + bw / 2, 60);
+      ctx.closePath(); ctx.fill();
+      for (let i = 0; i < 3; i++) {
+        const dy = 62 + ((time / 6 + i * 44) % 72);
+        if (dy < 136) {
+          ctx.fillStyle = 'rgba(96,150,225,.85)';
+          ctx.beginPath(); ctx.ellipse(bx + bw / 2 + 10, dy, 3.4, 5, 0, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      ctx.fillStyle = '#3b6fd4'; ctx.font = 'bold 12px sans-serif';
+      ctx.fillText('滴加盐酸（HCl）', bx + bw / 2 + 20, 38);
+    }
+    // 溶液中浮动的离子微粒（解离~中和阶段）
+    if (cur > 0.6 && cur < 2.6) {
+      ctx.fillStyle = 'rgba(255,255,255,.75)';
+      for (let i = 0; i < 8; i++) {
+        const px = bx + 24 + ((time / 24 + i * 61) % (bw - 48));
+        const py = 152 + (i * 29 % 84);
+        ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    // 状态标注
+    ctx.fillStyle = '#5b6575'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(cur < 1.6 ? '含酚酞的 NaOH 溶液（红色，pH > 7）' : cur < 2.6 ? '中和进行中，红色渐褪' : '恰好中和（无色，pH = 7）', bx + bw / 2, bot + 24);
+    ctx.fillStyle = red > 0.4 ? '#c0392b' : '#2fae6e';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillText(red > 0.4 ? '碱性' : '中性', bx + bw / 2, 132);
+    ctx.textAlign = 'left';
+  }
+
+  // 一氧化碳还原氧化铜：0 黑粉通 CO → 1 加热反应 → 2 变红 + 石灰水浑浊 → 3 点燃尾气
+  function drawCoReduce(ctx, st, time) {
+    const mix = st.macroMix;
+    const cur = mix.from + (mix.to - mix.from) * mix.t;        // 总进度 0..3
+    const heat = Math.max(0, Math.min(1, cur / 1.2));          // 加热强度
+    const red = Math.max(0, Math.min(1, (cur - 0.5) / 1.7));   // 黑粉变红进度
+    const lime = Math.max(0, Math.min(1, (cur - 1.8) / 0.4));  // 石灰水浑浊
+    // 硬质玻璃管（横放）
+    const tx = 280, tw = 340, ty = 128, th = 64;
+    ctx.strokeStyle = '#8a97a8'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.roundRect(tx, ty, tw, th, 12); ctx.stroke();
+    ctx.fillStyle = 'rgba(200,225,245,.08)'; ctx.fill();
+    // 粉末：黑色 CuO 逐粒变红（Cu）
+    for (let i = 0; i < 16; i++) {
+      const px = tx + 18 + (i % 8) * 38, py = ty + 40 + Math.floor(i / 8) * 14;
+      const hot = red > (i % 8) / 9;   // 逐粒变化更有"过程感"
+      ctx.fillStyle = hot ? `rgba(224,134,46,${0.55 + 0.45 * red})` : '#3d4450';
+      ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fill();
+    }
+    // 左侧通入 CO
+    ctx.strokeStyle = '#5b8fd0'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(150, ty + th / 2); ctx.lineTo(tx, ty + th / 2); ctx.stroke();
+    ctx.fillStyle = '#3b6fd4'; ctx.font = 'bold 12.5px sans-serif';
+    ctx.fillText('通入 CO →', 92, ty + th / 2 - 12);
+    // 酒精灯加热
+    const lx = tx + tw / 2;
+    ctx.fillStyle = '#4a5261';
+    ctx.fillRect(lx - 26, ty + th + 26, 52, 20);
+    ctx.fillRect(lx - 7, ty + th + 14, 14, 12);
+    if (heat > 0.05) {
+      const flick = Math.sin(time / 55) * 3;
+      ctx.globalAlpha = heat;
+      ctx.fillStyle = '#7ec3f0';
+      ctx.beginPath();
+      ctx.moveTo(lx - 12, ty + th + 14);
+      ctx.quadraticCurveTo(lx - 16, ty + th - 4 + flick, lx, ty + th - 18 + flick);
+      ctx.quadraticCurveTo(lx + 16, ty + th - 4 + flick, lx + 12, ty + th + 14);
+      ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#c0392b'; ctx.font = '12px sans-serif';
+      ctx.fillText('加热', lx + 34, ty + th + 10);
+    }
+    // 右侧导管 + 澄清石灰水试管
+    const tx2 = 742;
+    ctx.strokeStyle = '#8a97a8'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(tx + tw, ty + th / 2); ctx.lineTo(tx2, ty + th / 2); ctx.lineTo(tx2, 150); ctx.stroke();
+    ctx.beginPath(); ctx.roundRect(tx2 - 26, 150, 52, 110, 8); ctx.stroke();
+    ctx.fillStyle = `rgba(235,245,255,${0.75 - 0.25 * lime})`;
+    ctx.fillRect(tx2 - 23, 186, 46, 71);
+    ctx.fillStyle = '#5b6575'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(lime > 0.5 ? '变浑浊 ✓' : '澄清石灰水', tx2, 178);
+    ctx.textAlign = 'left';
+    if (lime > 0) {
+      ctx.fillStyle = `rgba(225,235,245,${lime})`; ctx.fillRect(tx2 - 23, 186, 46, 71);
+      ctx.fillStyle = `rgba(160,175,195,${0.9 * lime})`;
+      for (let i = 0; i < 6; i++) {
+        ctx.beginPath(); ctx.arc(tx2 - 14 + (i % 3) * 14, 198 + Math.floor(i / 3) * 24, 3, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    // 尾气点燃（CO 有毒，不能直接排放）
+    ctx.beginPath(); ctx.moveTo(tx2 + 26, 200); ctx.lineTo(836, 200); ctx.stroke();
+    if (cur > 2.3) {
+      const flick = Math.sin(time / 45) * 2.5;
+      ctx.globalAlpha = Math.min(1, (cur - 2.3) / 0.3);
+      ctx.fillStyle = '#8ec9f0';
+      ctx.beginPath();
+      ctx.moveTo(826, 198);
+      ctx.quadraticCurveTo(832 + flick, 180, 836, 168 + flick);
+      ctx.quadraticCurveTo(842, 182, 846, 198);
+      ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#c0392b'; ctx.font = 'bold 12px sans-serif';
+      ctx.fillText('点燃尾气', 812, 152);
+    }
+    // 状态标注
+    ctx.fillStyle = '#5b6575'; ctx.font = '12px sans-serif';
+    ctx.fillText(red > 0.9 ? '黑色粉末 → 红色铜 ✓' : '黑色 CuO 粉末', tx, ty - 10);
   }
 
   function drawElectrolyzer(ctx, st, time) {
@@ -750,6 +1026,13 @@ const ChemEngine = (() => {
   }
 
   // ---------- 主循环 ----------
+  // 单帧绘制：切反应时同步画首帧，不必等下一个 rAF（也避免慢机器上的空白闪烁期）
+  function paint(now) {
+    const st = current();
+    drawMicro(st);
+    drawMacro(st, now || 0);
+    updateCaption && updateCaption(st);
+  }
   function tick(now) {
     if (!reaction) return;
     // 页面隐藏（切走导航/切到其他子标签）时冻结时间轴并跳过绘制，回来接着放
@@ -758,10 +1041,7 @@ const ChemEngine = (() => {
     if (playing) phase += dt / (HOLD + TRANSIT);
     const n = reaction.stages.length;
     if (phase >= n - 1) { phase = n - 1; if (playing) { playing = false; onPlayState && onPlayState(); } }
-    const st = current();
-    drawMicro(st);
-    drawMacro(st, now);
-    updateCaption && updateCaption(st);
+    paint(now);
     raf = requestAnimationFrame(tick);
   }
 
@@ -780,6 +1060,7 @@ const ChemEngine = (() => {
     phase = 0; bubbles = [];
     playing = false;
     if (!raf) { lastT = performance.now(); raf = requestAnimationFrame(tick); }
+    paint(0);   // 首帧同步上屏
   }
 
   function play() { if (phase >= reaction.stages.length - 1) phase = 0; playing = true; }

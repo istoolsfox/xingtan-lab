@@ -574,6 +574,9 @@ const MathLab = (() => {
       if (lhs === 'z' && /\by\b/.test(rhs)) return { type: 'fn3d', expr: rhs };
       return { type: 'implicit', expr: e };
     }
+    // 裸表达式含 y（如 x^2+y^2）无法按一元函数求值，直接进三维曲面——
+    // 与 README「输入含 y 的表达式自动切三维」的承诺一致，也修复快速开始卡片画空曲线的问题
+    if (/\by\b/.test(e)) return { type: 'fn3d', expr: e };
     return { type: 'fn', expr: e };
   }
 
@@ -1484,6 +1487,9 @@ const MathLab = (() => {
 
   // ---------------- 分类面板 ----------------
   function setCategory(id) {
+    if (!CATS[id]) return;
+    // 切分类即离开互动演示：预设面板此时不可用，留在演示里只会让教师困惑
+    if (mode === 'demo') closeDemo();
     catId = id;
     const cat = CATS[id];
     $('#preset-cat-title').textContent = cat.name + ' · ' + cat.level;
@@ -1576,18 +1582,67 @@ const MathLab = (() => {
   function state() {
     return {
       kind: 'math',
+      cat: catId,
       view: mode === '3d' ? '3d' : '2d',
-      exprs: mode === '3d' && fn3d ? [fn3d.expr] : fns.map(o => o.expr)
+      // 3D 视图下二维函数仍保留：保存的是整个工作区而非单一画面
+      exprs: [...fns.map(o => o.expr), ...(fn3d ? [fn3d.expr] : [])],
+      // v1.1 起新增：完整恢复教师调好的参数与曲线样式；旧场景无此字段，恢复时按默认值
+      fns: fns.map(o => ({
+        expr: o.expr, pr: Object.assign({}, o.pr), color: o.color,
+        width: o.width, dash: o.dash, visible: o.visible
+      })),
+      fn3d: fn3d ? { expr: fn3d.expr, pr: Object.assign({}, fn3d.pr) } : null
     };
   }
 
   function applyScene(s) {
     clearAll();
+    if (s.cat && CATS[s.cat]) setCategory(s.cat);
     (s.exprs || []).forEach(e => { try { addExpr(e); } catch (err) { /* skip */ } });
+    // 恢复参数与样式：按表达式匹配（个别旧表达式解析失败也不会错位），缺省字段保持 addExpr 的默认值
+    (Array.isArray(s.fns) ? s.fns : []).forEach(sv => {
+      if (!sv || typeof sv.expr !== 'string') return;
+      const o = fns.find(x => x.expr === sv.expr);
+      if (!o) return;
+      if (sv.pr && typeof sv.pr === 'object') {
+        Object.keys(sv.pr).forEach(k => { if (isFinite(sv.pr[k])) o.pr[k] = parseFloat(sv.pr[k]); });
+      }
+      if (typeof sv.color === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(sv.color)) o.color = sv.color;
+      if (isFinite(sv.width)) o.width = Math.max(1, Math.min(8, parseFloat(sv.width)));
+      if ([0, 1, 2, 3].includes(sv.dash)) o.dash = sv.dash;
+      const style = { strokeColor: o.color, strokeWidth: o.width, dash: o.dash };
+      (o.curves || [o.curve]).forEach(c => { if (c) c.setAttribute(style); });
+      if (typeof sv.visible === 'boolean' && sv.visible !== o.visible) {
+        o.visible = sv.visible;
+        (o.curves || [o.curve]).forEach(c => { if (c) c.setAttribute({ visible: o.visible }); });
+      }
+      if (o.type === 'implicit') o.build(); else board.update();
+    });
+    // 三维曲面的参数恢复；显式 view === '3d' 时回到三维视图
+    if (fn3d && s.fn3d && s.fn3d.pr && typeof s.fn3d.pr === 'object') {
+      Object.keys(s.fn3d.pr).forEach(k => {
+        if (isFinite(s.fn3d.pr[k])) { fn3d.pr[k] = parseFloat(s.fn3d.pr[k]); surf.setParam(k, fn3d.pr[k]); }
+      });
+    }
+    if (s.view === '3d' && fn3d) setMode('3d');
+    renderFnList();
+    renderInspector();
   }
 
   return {
     init, setCategory, addExpr, state, applyScene, CATS,
+    // 供外壳（工作台快速开始/分类下拉）调用的轻量入口，避免外壳碰 DOM 找按钮
+    openDemo, closeDemo, currentCategory: () => catId,
+    // 容器尺寸变化（如上课模式隐藏侧栏）后重设画板并全量重绘
+    resize() {
+      if (!board || mode === 'demo') return;
+      try {
+        const box = board.containerObj || document.getElementById('plot2d');
+        if (!box || !box.clientWidth || !box.clientHeight) return;
+        board.resizeContainer(box.clientWidth, box.clientHeight);
+        board.fullUpdate();
+      } catch (e) { /* 旧版 JSXGraph 缺少 API 时静默降级 */ }
+    },
     // 内部工具：仅测试与高级用法使用
     _internal: { smartInsert, findZeros, scheduleViewRebuild, safe, entryOf, lastEntry: () => fns[fns.length - 1] || null }
   };

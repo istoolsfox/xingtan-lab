@@ -65,6 +65,9 @@
       <div class="nav-group">个人</div>
       <button class="nav-item" data-page="mine">📁 我的演示</button>
     </nav>
+    <div class="sidebar-extras">
+      <button id="btn-present" class="btn tiny block">⛶ 上课模式（投屏）</button>
+    </div>
     <div class="sidebar-footer">
       <span id="who" class="who">—</span>
       <button id="btn-logout" class="btn tiny ghost">退出登录</button>
@@ -88,12 +91,14 @@
     <section id="page-math" class="page math-page hidden">
       <div class="math-toolbar">
         <div class="expr-line">
+          <select id="math-cat" class="math-cat" title="切换函数分类"></select>
           <span class="fx-label" id="expr-label">f(x) =</span>
-          <input id="expr-input" type="text" placeholder="y=f(x)；含 = 画隐函数如 x^2+y^2=25；r=... 极坐标；含 y 的 z=... 自动三维" maxlength="80">
+          <input id="expr-input" type="text" placeholder="y=f(x)；含 = 画隐函数如 x^2+y^2=25；r=... 极坐标；含 y 自动三维" maxlength="80">
           <button id="btn-add-fn" class="btn primary small">添加</button>
           <button id="btn-clear-fn" class="btn small">清空</button>
           <button id="btn-back-fn" class="btn small hidden">← 返回函数列表</button>
           <button id="math-save" class="btn small">💾 保存演示</button>
+          <button class="btn small btn-export">📸 导出画面</button>
         </div>
         <div id="main-palette" class="pal-row"></div>
         <div class="view-badge" id="view-badge">二维视图</div>
@@ -155,6 +160,7 @@
               <button id="phy-play" class="btn small">⏸ 暂停</button>
               <button id="phy-reset" class="btn small">↺ 重置</button>
               <button id="phy-save" class="btn small primary">💾 保存</button>
+              <button class="btn small btn-export">📸 导出</button>
             </div>
           </div>
         </aside>
@@ -181,6 +187,7 @@
               <strong>双视图联动</strong><br>上：宏观实验现象<br>下：微观分子变化<br>同一时间轴驱动。
             </div>
             <button id="chem-save" class="btn small primary">💾 保存当前演示</button>
+            <button class="btn small btn-export">📸 导出画面</button>
           </aside>
           <div class="lab-stage col">
             <div class="panel-title" id="chem-equation"></div>
@@ -280,6 +287,7 @@
               <span class="muted">新增诗文只需在 chinese.js 的 POEMS 里加一条数据。</span>
             </div>
             <button id="chinese-save" class="btn small primary">💾 保存当前演示</button>
+            <button class="btn small btn-export">📸 导出画面</button>
           </aside>
           <div class="lab-stage col">
             <div class="panel-title" id="cn-poem-head"></div>
@@ -320,11 +328,14 @@
     <!-- 我的演示 -->
     <section id="page-mine" class="page hidden">
       <h1 class="page-title">我的演示 <span class="muted" id="mine-user"></span></h1>
+      <div id="mine-filters" class="mine-filters"></div>
       <div id="mine-list" class="mine-list"></div>
     </section>
 
   </main>
 </div>
+
+<button id="present-exit" class="btn small hidden">⤢ 退出上课模式（Esc）</button>
 
 <div id="toast" class="hidden"></div>
 

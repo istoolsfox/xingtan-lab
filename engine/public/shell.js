@@ -103,17 +103,151 @@
     $('#math-save').addEventListener('click', saveScene);
     $('#chinese-save').addEventListener('click', saveScene);
     $('#dash-hello').textContent = '';
+    bindMathCatSelect();
+    bindPresent();
+    $$('.btn-export').forEach(b => b.addEventListener('click', exportImage));
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && document.body.classList.contains('present')) setPresent(false);
+    });
+    // 窗口尺寸变化（接投影仪/分屏）时同步 2D 画板
+    window.addEventListener('resize', () => {
+      if (inited.math && currentPage === 'math') MathLab.resize();
+    });
+  }
+
+  // 页面内数学分类下拉：免回侧边栏滚动，切分类即离开演示模式
+  function bindMathCatSelect() {
+    const sel = $('#math-cat');
+    if (!sel || sel.dataset.built) return;
+    sel.dataset.built = '1';
+    [...new Set(Object.values(MathLab.CATS).map(c => c.level))].forEach(lv => {
+      const og = document.createElement('optgroup');
+      og.label = lv;
+      Object.entries(MathLab.CATS).forEach(([id, c]) => {
+        if (c.level !== lv) return;
+        const o = document.createElement('option');
+        o.value = id; o.textContent = c.name;
+        og.appendChild(o);
+      });
+      sel.appendChild(og);
+    });
+    sel.addEventListener('change', () => {
+      MathLab.setCategory(sel.value);
+      $$('#nav .nav-item').forEach(b =>
+        b.classList.toggle('active', b.dataset.page === 'math' && b.dataset.cat === sel.value));
+    });
+  }
+  function syncMathCat() {
+    const sel = $('#math-cat');
+    if (sel && MathLab.CATS[MathLab.currentCategory()]) sel.value = MathLab.currentCategory();
+  }
+
+  // ================= 上课模式 =================
+  // 课堂投屏：隐藏导航与两侧面板，画面占满窗口；Esc 或浮动按钮退出
+  function setPresent(on) {
+    document.body.classList.toggle('present', !!on);
+    $('#present-exit').classList.toggle('hidden', !on);
+    // 画板容器尺寸变了：rAF 驱动的引擎下一帧会自然跟上，2D 画板需显式重设尺寸
+    if (inited.math && currentPage === 'math') MathLab.resize();
+  }
+  function bindPresent() {
+    $('#btn-present').addEventListener('click', () => setPresent(true));
+    $('#present-exit').addEventListener('click', () => setPresent(false));
+  }
+
+  // ================= 导出画面（插入课件用） =================
+  function downloadDataURL(url, name) {
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  // JSXGraph 1.10 用 SVG 渲染：序列化成 data URL 图片，再画到 canvas 上转位图
+  function svgToImage(svg) {
+    return new Promise((resolve, reject) => {
+      const xml = new XMLSerializer().serializeToString(svg);
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('svg load fail'));
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+    });
+  }
+  async function exportMathPlot(name) {
+    const vis = el => el && el.offsetParent !== null;
+    const cvs = [...document.querySelectorAll('.plot-area canvas')].filter(vis);
+    const svgs = [...document.querySelectorAll('.plot-area svg')].filter(vis);
+    if (cvs.length === 1 && !svgs.length) { downloadDataURL(cvs[0].toDataURL('image/png'), name); return true; }
+    // 多画布（如 DFT 时域+频域）或矢量画板：统一转图片后拼接成一张
+    const parts = [];
+    for (const c of cvs) parts.push({ img: c, w: c.width, h: c.height });
+    for (const s of svgs) {
+      try {
+        parts.push({ img: await svgToImage(s), w: s.clientWidth || 860, h: s.clientHeight || 540 });
+      } catch (e) { /* 单块失败跳过 */ }
+    }
+    if (!parts.length) return false;
+    const out = document.createElement('canvas');
+    const ctx = out.getContext('2d');
+    const gap = 12;
+    out.width = parts.reduce((a, p) => a + p.w, 0) + gap * (parts.length - 1);
+    out.height = Math.max(...parts.map(p => p.h));
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, out.width, out.height);
+    let x = 0;
+    for (const p of parts) { ctx.drawImage(p.img, x, 0, p.w, p.h); x += p.w + gap; }
+    downloadDataURL(out.toDataURL('image/png'), name);
+    return true;
+  }
+  async function exportImage() {
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, '-');
+    const name = `杏坛-${currentPage}-${stamp}.png`;
+    if (currentPage === 'chem') {
+      // 宏观 + 微观纵向合成一张图（带方程式标题），插入 PPT 更完整
+      const c1 = $('#chem-macro'), c2 = $('#chem-micro');
+      const out = document.createElement('canvas');
+      out.width = Math.max(c1.width, c2.width);
+      out.height = c1.height + c2.height + 46;
+      const ctx = out.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, out.width, out.height);
+      const r = ChemEngine.currentReaction();
+      ctx.fillStyle = '#1c2430'; ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(r ? r.equation : '化学反应演示', out.width / 2, 30);
+      ctx.textAlign = 'left';
+      ctx.drawImage(c1, 0, 40); ctx.drawImage(c2, 0, 44 + c1.height);
+      downloadDataURL(out.toDataURL('image/png'), name);
+      toast('画面已导出（宏观 + 微观合成图）');
+      return;
+    }
+    if (currentPage === 'geogebra') {
+      if (!window.ggbApplet) { toast('画板尚未加载完成', true); return; }
+      window.ggbApplet.getPNG(2, false, url => {
+        if (url) downloadDataURL(url, name); else toast('画板导出失败', true);
+      });
+      toast('正在导出画板…');
+      return;
+    }
+    let ok = false;
+    if (currentPage === 'math') ok = await exportMathPlot(name);
+    else if (currentPage === 'physics') {
+      const cv = $('#phy-canvas');
+      if (cv) { downloadDataURL(cv.toDataURL('image/png'), name); ok = true; }
+    } else if (currentPage === 'chinese') {
+      const cv = $('#cn-scene');
+      if (cv) { downloadDataURL(cv.toDataURL('image/png'), name); ok = true; }
+    }
+    if (ok) toast('画面已导出 PNG，可直接插入课件');
+    else toast('当前页面没有可导出的画面', true);
   }
 
   function gotoPage(page, cat) {
     currentPage = page;
+    document.body.dataset.page = page;
     $$('.page').forEach(p => p.classList.add('hidden'));
     $('#page-' + page).classList.remove('hidden');
     $$('#nav .nav-item').forEach(b => b.classList.toggle('active', b.dataset.page === page && (!b.dataset.cat || b.dataset.cat === (cat || ''))));
     if (page === 'math') {
       if (!inited.math) { MathLab.init(); inited.math = true; }
       if (cat) MathLab.setCategory(cat);
-      else MathLab.setCategory('basic');
+      else if (!MathLab.CATS[MathLab.currentCategory()]) MathLab.setCategory('basic');
+      syncMathCat();
     } else if (page === 'physics') {
       if (!inited.physics) { initPhysics(); inited.physics = true; }
     } else if (page === 'chem') {
@@ -133,6 +267,9 @@
   // ================= 工作台 =================
   async function renderDashboard() {
     $('#dash-hello').textContent = `${me}，欢迎回来。选择左侧分类开始探索，或从下面快速进入。`;
+    // 统计数字从各模块实时取——内容扩充后工作台自动跟上，不再手抄硬编码
+    let presets = 0, demos = 0;
+    Object.values(MathLab.CATS).forEach(c => { presets += c.presets.length; demos += (c.demos || []).length; });
     let count = 0;
     try {
       const r = await fetch('/api/scenes', { headers: authHeaders() });
@@ -140,23 +277,29 @@
       count = (d.scenes || []).length;
     } catch (e) { /* ignore */ }
     const cards = [
-      { num: '15', lbl: '数学分类（小学 → 大学全学段）' },
-      { num: '89', lbl: '一键函数预设（含 cot/sec/伽马/阶乘）' },
-      { num: '13', lbl: '互动演示（导数/积分/泰勒/傅里叶/向量场…）' },
+      { num: String(Object.keys(MathLab.CATS).length), lbl: '数学分类（小学 → 大学全学段）' },
+      { num: String(presets), lbl: '一键函数预设（含 cot/sec/伽马/阶乘）' },
+      { num: String(demos + Physics.list().length + ChemEngine.list().length), lbl: '互动演示 · 物理实验 · 化学反应' },
       { num: String(count), lbl: '我保存的演示' }
     ];
-    $('#dash-cards').innerHTML = cards.map(c => `<div class="dash-card"><div class="num">${c.num}</div><div class="lbl">${c.lbl}</div></div>`).join('');
+    $('#dash-cards').innerHTML = cards.map(c => `<div class="dash-card"><div class="num">${esc(c.num)}</div><div class="lbl">${esc(c.lbl)}</div></div>`).join('');
 
+    // 快速开始：覆盖全部学科，点击即到达对应内容
     const quick = [
-      { cat: 'basic', t: '二次函数', d: '拖 a/b/c 看开口、顶点、对称轴', expr: 'a*x^2 + b*x + c' },
-      { cat: 'trig', t: '正弦波', d: '振幅 A、频率 w、初相 p', expr: 'A*sin(w*x + p)' },
-      { cat: 'calculus', t: '导数与切线', d: '拖动点观察切线斜率 = 导数', demo: 'deriv' },
-      { cat: 'conic', t: '隐函数：圆', d: '直接输入 x^2 + y^2 = 25 即可画出', expr: 'x^2 + y^2 = 25' },
-      { cat: 'conic', t: '向量场与流线', d: '输入 P、Q，点击图面释放粒子', demo: 'vfield' },
-      { cat: 'param', t: '利萨茹曲线', d: '两个垂直简谐振动的合成', demo: 'lissajous' },
-      { cat: 'param', t: '摆线滚动', d: '车轮上一点的轨迹动画', demo: 'cycloid' },
-      { cat: 'fourier', t: '傅里叶变换 · 频谱', d: '时域信号分解出频率成分', demo: 'dft' },
-      { cat: 'surface', t: '三维曲面', d: 'z = x²+y² 旋转抛物面（自动 3D）', expr: 'x^2 + y^2' }
+      { type: 'math', cat: 'basic', t: '二次函数', d: '拖 a/b/c 看开口、顶点、对称轴', expr: 'a*x^2 + b*x + c' },
+      { type: 'math', cat: 'trig', t: '正弦波', d: '振幅 A、频率 w、初相 p', expr: 'A*sin(w*x + p)' },
+      { type: 'math', cat: 'calculus', t: '导数与切线', d: '拖动点观察切线斜率 = 导数', demo: 'deriv' },
+      { type: 'math', cat: 'conic', t: '隐函数：圆', d: '直接输入 x^2 + y^2 = 25 即可画出', expr: 'x^2 + y^2 = 25' },
+      { type: 'math', cat: 'conic', t: '向量场与流线', d: '输入 P、Q，点击图面释放粒子', demo: 'vfield' },
+      { type: 'math', cat: 'param', t: '利萨茹曲线', d: '两个垂直简谐振动的合成', demo: 'lissajous' },
+      { type: 'math', cat: 'param', t: '摆线滚动', d: '车轮上一点的轨迹动画', demo: 'cycloid' },
+      { type: 'math', cat: 'surface', t: '三维曲面', d: 'x²+y² 旋转抛物面（自动 3D）', expr: 'x^2 + y^2' },
+      { type: 'chem', react: 'electrolysis', t: '水的电解', d: '宏观气泡 2:1 ↔ 微观分子重组联动' },
+      { type: 'chem', react: 'neutralization', t: '酸碱中和', d: '酚酞褪色背后的 H⁺ + OH⁻ → H₂O' },
+      { type: 'physics', tpl: 'fall-vs-projectile', t: '平抛 vs 自由落体', d: '同时释放，看谁先落地' },
+      { type: 'physics', tpl: 'optics-refraction', t: '光的折射与全反射', d: '调入射角与介质，实时画光线' },
+      { type: 'chinese', poem: 'jingyesi', t: '《静夜思》意境图', d: '逐句注释 + 动态月夜画面' },
+      { type: 'geogebra', t: 'GeoGebra 画板', d: '几何作图 / 3D / CAS 符号计算' }
     ];
     const q = $('#dash-quick');
     q.innerHTML = '';
@@ -164,21 +307,7 @@
       const b = document.createElement('button');
       b.className = 'quick-card';
       b.innerHTML = `<div class="t">${esc(c.t)}</div><div class="d">${esc(c.d)}</div>`;
-      b.addEventListener('click', () => {
-        gotoPage('math', c.cat);
-        if (c.demo) {
-          setTimeout(() => {
-            const key = { deriv: '导数', dft: '频谱', lissajous: '利萨茹', cycloid: '摆线', 'fourier-square': '方波', vfield: '向量场' }[c.demo] || '方波';
-            const btn = [...document.querySelectorAll('#demo-list .preset-item')].find(x => x.textContent.includes(key));
-            btn && btn.click();
-          }, 60);
-        } else {
-          setTimeout(() => {
-            $('#expr-input').value = c.expr;
-            $('#btn-add-fn').click();
-          }, 60);
-        }
-      });
+      b.addEventListener('click', () => openQuick(c));
       q.appendChild(b);
     });
     // 最近保存
@@ -191,6 +320,31 @@
       list.forEach(s => box.appendChild(mineCard(s, true)));
     } catch (e) {
       box.innerHTML = '<div class="mine-empty">加载失败</div>';
+    }
+  }
+
+  // 快速开始卡片 → 对应模块并直达内容（走各模块 API，不靠碰 DOM 找按钮）
+  function openQuick(c) {
+    if (c.type === 'math' || !c.type) {
+      gotoPage('math', c.cat);
+      setTimeout(() => {
+        if (c.demo) { MathLab.openDemo(c.demo); return; }
+        try {
+          MathLab.addExpr(c.expr);
+          $('#expr-error').textContent = '';
+        } catch (e) { $('#expr-error').textContent = e.message; }
+      }, 60);
+    } else if (c.type === 'chem') {
+      gotoPage('chem');
+      setTimeout(() => selectReaction(c.react), 80);
+    } else if (c.type === 'physics') {
+      gotoPage('physics');
+      setTimeout(() => selectTemplate(c.tpl), 80);
+    } else if (c.type === 'chinese') {
+      gotoPage('chinese');
+      setTimeout(() => Chinese.applyScene({ tab: 'poem', poem: c.poem }), 80);
+    } else if (c.type === 'geogebra') {
+      gotoPage('geogebra');
     }
   }
 
@@ -293,6 +447,7 @@
         title: tpl ? tpl.title : '物理实验',
         params: Physics.currentParams(),
         gravity: parseFloat($('#phy-gravity').value),
+        vectors: $('#phy-vectors').checked,
         trails: $('#phy-trails').checked
       };
     }
@@ -377,25 +532,43 @@
     return card;
   }
 
+  // 我的演示：按学科筛选（全部/数学/物理/化学/语文/GeoGebra）
+  let mineFilter = 'all';
+  const MINE_KINDS = [['all', '全部'], ['math', '数学'], ['physics', '物理'], ['chem', '化学'], ['chinese', '语文'], ['geogebra', 'GeoGebra']];
+
   async function renderMine() {
     $('#mine-user').textContent = `（${me}）`;
     const box = $('#mine-list');
     box.innerHTML = '<div class="mine-empty">加载中…</div>';
+    let list = [];
     try {
       const r = await fetch('/api/scenes', { headers: authHeaders() });
       const d = await r.json();
-      const list = d.scenes || [];
-      box.innerHTML = list.length ? '' : '<div class="mine-empty">还没有保存的演示。在数学/物理/化学页操作后，点「💾 保存当前演示」。</div>';
-      list.forEach(s => box.appendChild(mineCard(s, false)));
+      list = d.scenes || [];
     } catch (e) {
+      $('#mine-filters').innerHTML = '';
       box.innerHTML = '<div class="mine-empty">加载失败：' + esc(e.message) + '</div>';
+      return;
     }
+    const fl = $('#mine-filters');
+    fl.innerHTML = '';
+    MINE_KINDS.forEach(([k, label]) => {
+      const n = k === 'all' ? list.length : list.filter(s => s.kind === k).length;
+      const b = document.createElement('button');
+      b.className = 'chip' + (mineFilter === k ? ' active' : '');
+      b.textContent = `${label} ${n}`;
+      b.addEventListener('click', () => { mineFilter = k; renderMine(); });
+      fl.appendChild(b);
+    });
+    const shown = list.filter(s => mineFilter === 'all' || s.kind === mineFilter);
+    box.innerHTML = shown.length ? '' : '<div class="mine-empty">该学科下还没有保存的演示。在各模块页操作后，点「💾 保存」。</div>';
+    shown.forEach(s => box.appendChild(mineCard(s, false)));
   }
 
   function openScene(s) {
     if (s.kind === 'math') {
       gotoPage('math');
-      setTimeout(() => { MathLab.applyScene(s); }, 80);
+      setTimeout(() => { MathLab.applyScene(s); syncMathCat(); }, 80);
     } else if (s.kind === 'physics') {
       gotoPage('physics');
       setTimeout(() => {
@@ -407,6 +580,7 @@
           $('#phy-gravity-v').textContent = s.gravity;
           Physics.setGravity(s.gravity);
         }
+        if (s.vectors !== undefined) { $('#phy-vectors').checked = s.vectors; Physics.setVectors(s.vectors); }
         if (s.trails !== undefined) { $('#phy-trails').checked = s.trails; Physics.setTrails(s.trails); }
       }, 80);
     } else if (s.kind === 'chem') {

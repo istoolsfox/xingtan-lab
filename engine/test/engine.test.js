@@ -142,6 +142,34 @@ describe('mathlab', () => {
     assert.throws(() => MathLab.addExpr('r = sin(y)'), /极坐标/);
   });
 
+  test('裸含 y 表达式自动进三维（修复一元求值画空曲线）', () => {
+    MathLab.applyScene({ exprs: [] });
+    MathLab.addExpr('x^2 + y^2');
+    assert.strictEqual(MathLab.state().view, '3d');
+    assert.deepStrictEqual(MathLab.state().exprs, ['x^2 + y^2']);
+    MathLab.applyScene({ exprs: [] });
+  });
+
+  test('场景完整往返：分类/参数/颜色随场景保存恢复；旧场景（无新字段）仍兼容', () => {
+    MathLab.setCategory('quadratic');
+    MathLab.applyScene({ exprs: ['a*x^2 + b*x + c'] });
+    const e = MathLab._internal.lastEntry();
+    e.pr.a = 2; e.pr.b = -1; e.pr.c = 3;
+    e.color = '#123456';
+    const st = MathLab.state();
+    assert.strictEqual(st.cat, 'quadratic');
+    assert.strictEqual(st.fns.length, 1);
+    MathLab.applyScene({ exprs: ['sin(x)'] });   // 先切到别的内容
+    MathLab.applyScene(st);                       // 再完整恢复
+    const e2 = MathLab._internal.lastEntry();
+    assert.strictEqual(e2.expr, 'a*x^2 + b*x + c');
+    assert.deepStrictEqual(e2.pr, { a: 2, b: -1, c: 3 });
+    assert.strictEqual(e2.color, '#123456');
+    // 旧场景：只有 exprs 字段也能恢复（兼容性纪律）
+    MathLab.applyScene({ kind: 'math', exprs: ['x^2/25 + y^2/9 = 1'] });
+    assert.deepStrictEqual(MathLab.state().exprs, ['x^2/25 + y^2/9 = 1']);
+  });
+
   test('场景保存与恢复：隐函数/极坐标表达式原样往返', () => {
     MathLab.applyScene({ exprs: ['x^2/25 + y^2/9 = 1', 'r = 1 + cos(t)', 'sin(x)'] });
     const st = MathLab.state();
@@ -210,15 +238,15 @@ describe('mathlab', () => {
 describe('chemistry', () => {
   global.performance = { now: () => 0 };
   global.cancelAnimationFrame = () => {};
-  const hook = 'globalThis.__check = () => REACTIONS.map(r => ({ id: r.id, sigs: r.stages.map(s => { const d = s(); return d.atoms.map(a => a.el).join(",") + "#" + d.atoms.length; }) }));\n  return { init, setReaction,';
+  const hook = 'globalThis.__check = () => REACTIONS.map(r => ({ id: r.id, macro: r.macro, caps: r.captions.length, nStages: r.stages.length, sigs: r.stages.map(s => { const d = s(); return d.atoms.map(a => a.el).join(",") + "#" + d.atoms.length; }) }));\n  return { init, setReaction,';
   const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'chemistry.js'), 'utf8').replace('return { init, setReaction,', hook) + ';globalThis.ChemEngine = ChemEngine;';
   (0, eval)(src);
   const chem = globalThis.ChemEngine;
   chem.init({ macro: { width: 900, height: 290, getContext: () => null }, micro: { width: 900, height: 290, getContext: () => null } });
 
-  test('初中重点反应库齐全', () => {
+  test('反应库齐全（初中重点 + 中和/还原扩充）', () => {
     const ids = chem.list().map(r => r.id);
-    for (const id of ['electrolysis', 'combustion', 'carbon-burn', 'methane-burn', 'fe-cuso4']) {
+    for (const id of ['electrolysis', 'combustion', 'carbon-burn', 'methane-burn', 'fe-cuso4', 'neutralization', 'co-reduce-cuo']) {
       assert.ok(ids.includes(id), `缺少反应 ${id}`);
     }
   });
@@ -227,6 +255,49 @@ describe('chemistry', () => {
     // 通过 setReaction 驱动并读取闭包内 REACTIONS 的等价校验：直接重放 stages
     for (const r of globalThis.__check()) {
       assert.ok(r.sigs.every(s => s === r.sigs[0]), `${r.id} 阶段签名不一致:\n  ${r.sigs.join('\n  ')}`);
+    }
+  });
+
+  test('每个反应都有宏观渲染器，且解说条数与阶段数一致', () => {
+    const MACROS = ['electrolyzer', 'combustion', 'charcoal', 'methane', 'displacement', 'neutral', 'co-reduce'];
+    for (const r of globalThis.__check()) {
+      assert.ok(MACROS.includes(r.macro), `${r.id} 宏观渲染器 "${r.macro}" 未注册`);
+      assert.strictEqual(r.caps, r.nStages, `${r.id} captions(${r.caps}) 与 stages(${r.nStages}) 数量不一致`);
+    }
+  });
+});
+
+// ---------- 语文模块（数据健全性：新增条目只需加数据，此处保证不写错字段） ----------
+describe('chinese', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'chinese.js'), 'utf8')
+    .replace('return { init, state, applyScene };', 'return { init, state, applyScene, __data: { POEMS, SCENERY, OUTLINES, WRITINGS } };')
+    + ';globalThis.ChineseMod = Chinese;';
+  (0, eval)(src);
+  const { POEMS, SCENERY, OUTLINES, WRITINGS } = globalThis.ChineseMod.__data;
+
+  test('古诗文库：每首诗字段齐全，意境元素类型都已注册', () => {
+    assert.ok(POEMS.length >= 10, `古诗数量 ${POEMS.length}，扩充后应 ≥10`);
+    for (const p of POEMS) {
+      assert.ok(p.id && p.title && p.author && p.grade, `${p.id || '?'} 基础字段缺失`);
+      assert.ok(p.lines.length >= 4 && p.lines.every(l => l.text && l.note), `${p.title} 诗句/注释缺失`);
+      assert.ok(typeof p.translation === 'string' && p.translation.length > 10, `${p.title} 缺译文`);
+      assert.ok(typeof p.mood === 'string' && p.mood.startsWith('意境：'), `${p.title} 缺意境赏析`);
+      assert.ok(p.scenery.length >= 3, `${p.title} 意境元素过少`);
+      for (const s of p.scenery) {
+        assert.ok(SCENERY[s.type], `${p.title} 引用了未注册的意境元素 "${s.type}"`);
+      }
+    }
+  });
+
+  test('课文脉络与写作框架：结构字段齐全', () => {
+    assert.ok(OUTLINES.length >= 4, `课文脉络 ${OUTLINES.length}`);
+    for (const o of OUTLINES) {
+      assert.ok(o.title && o.root && o.idea, `${o.id} 字段缺失`);
+      assert.ok(o.nodes.length >= 3 && o.nodes.every(n => n.text && Array.isArray(n.children)), `${o.title} 节点结构缺失`);
+    }
+    assert.ok(WRITINGS.length >= 4, `写作框架 ${WRITINGS.length}`);
+    for (const w of WRITINGS) {
+      assert.ok(w.name && w.tip && w.blocks.length >= 3 && w.blocks.every(b => b.title && b.tips.length), `${w.name} 结构缺失`);
     }
   });
 });

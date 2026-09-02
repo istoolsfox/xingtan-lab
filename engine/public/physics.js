@@ -4,7 +4,7 @@
  * 内置实验模板化（Physics.TEMPLATES），新增实验只需加一个模板定义。
  */
 const Physics = (() => {
-  const { Engine, World, Bodies, Body, Composite, Constraint, Vector } = Matter;
+  const { Engine, World, Bodies, Body, Composite, Constraint, Vector, Events } = Matter;
   const PPM = 42; // 像素/米
   const W = 900, H = 520;
 
@@ -149,6 +149,39 @@ const Physics = (() => {
           ctx2.fillStyle = '#4a5261'; ctx2.fillRect(anchor.x - 24, anchor.y - 8, 48, 8);
         };
         return { bodies: [bob], tracked: [bob] };
+      }
+    },
+    {
+      id: 'fma',
+      title: '牛顿第二定律（F = ma）',
+      desc: '相同拉力拉不同质量的小车，实时对比加速度与速度',
+      params: [
+        { key: 'F', label: '拉力 F (N)', min: 1, max: 10, step: 0.5, value: 4 },
+        { key: 'm1', label: '甲车质量 (kg)', min: 0.5, max: 5, step: 0.5, value: 1 },
+        { key: 'm2', label: '乙车质量 (kg)', min: 0.5, max: 5, step: 0.5, value: 2 }
+      ],
+      setup(p) {
+        const mk = (ym, mass, color) => Bodies.rectangle(px(2.5), py(ym), px(1.7), px(0.8), {
+          friction: 0, frictionStatic: 0, frictionAir: 0, restitution: 0, mass, label: 'cart',
+          renderInfo: { color }
+        });
+        const A = mk(1.4, p.m1, '#3b7dd8');
+        const B = mk(3.6, p.m2, '#e05656');
+        const wr = Bodies.rectangle(W + 20, H / 2, 40, H * 2, { isStatic: true });
+        World.add(engine.world, [ground(), wr, A, B]);
+        // 拉力用速度积分实现（每步 Δv = F/m·dt，1 m/s → PPM/60 px/step）：
+        // 绕开 matter 内部力单位的换算歧义，加速度数值精确等于 F/m
+        let vA = 0, vB = 0;
+        Events.on(engine, 'beforeUpdate', () => {
+          if (A.position.x < W - 60) { vA += p.F / p.m1 / 60; Body.setVelocity(A, { x: vA * PPM / 60, y: 0 }); }
+          if (B.position.x < W - 60) { vB += p.F / p.m2 / 60; Body.setVelocity(B, { x: vB * PPM / 60, y: 0 }); }
+        });
+        hudFn = () => {
+          const dA = ((A.position.x - px(2.5)) / PPM).toFixed(2);
+          const dB = ((B.position.x - px(2.5)) / PPM).toFixed(2);
+          return `拉力 F = ${p.F} N（两车相同）\n甲：m = ${p.m1} kg → a = ${(p.F / p.m1).toFixed(2)} m/s²   v = ${vA.toFixed(2)} m/s   x = ${dA} m\n乙：m = ${p.m2} kg → a = ${(p.F / p.m2).toFixed(2)} m/s²   v = ${vB.toFixed(2)} m/s   x = ${dB} m\n质量越大，加速度越小：a = F/m`;
+        };
+        return { bodies: [A, B], tracked: [A, B] };
       }
     },
     {
@@ -331,6 +364,9 @@ const Physics = (() => {
       params[pd.key] = v;
     });
     current = tpl.setup(p);
+    // 首帧同步上屏：不必等下一个 rAF，选完模板立刻看到实验初始状态
+    render();
+    if (hudFn) document.getElementById('phy-hud').textContent = hudFn();
   }
 
   // ---------- 对外 API ----------

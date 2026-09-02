@@ -144,6 +144,74 @@ const Chinese = (() => {
         { type: 'day', x: 0, y: 0, hot: true }, { type: 'sun', x: 450, y: 80, size: 54 },
         { type: 'person', x: 400, y: 310, size: 70, farmer: true }, { type: 'field', x: 450, y: 400 }
       ]
+    },
+    {
+      id: 'tianmenshan', title: '望天门山', author: '李白', dynasty: '唐',
+      grade: '小学',
+      lines: [
+        { text: '天门中断楚江开', note: '天门山从中断开，长江水奔流而过' },
+        { text: '碧水东流至此回', note: '碧绿的江水向东流到这里回旋澎湃' },
+        { text: '两岸青山相对出', note: '两岸的青山相对耸立不断浮现' },
+        { text: '孤帆一片日边来', note: '一片孤帆从太阳升起的地方驶来' }
+      ],
+      translation: '长江犹如巨斧劈开天门雄峰，碧绿的江水东流到此回旋澎湃。两岸青山对峙美景难分高下，一叶孤舟悠悠从天边驶来。',
+      mood: '意境：断山、碧水、孤帆。山与水的壮阔对峙中，一叶孤帆格外醒目，写尽行舟江上的开阔胸襟。',
+      scenery: [
+        { type: 'day', x: 0, y: 0 }, { type: 'sun', x: 720, y: 90, size: 46 },
+        { type: 'mountain', x: 150, y: 280, size: 150 }, { type: 'mountain', x: 760, y: 300, size: 130 },
+        { type: 'river', x: 450, y: 330 }, { type: 'boat', x: 450, y: 360 }, { type: 'bird', x: 320, y: 130, size: 16 }
+      ]
+    },
+    {
+      id: 'shanxing', title: '山行', author: '杜牧', dynasty: '唐',
+      grade: '小学',
+      lines: [
+        { text: '远上寒山石径斜', note: '弯弯的石径斜斜地伸向深秋的远山' },
+        { text: '白云生处有人家', note: '白云缭绕的地方隐约有几户人家' },
+        { text: '停车坐爱枫林晚', note: '停下车来，因为喜爱这傍晚的枫林' },
+        { text: '霜叶红于二月花', note: '经霜的枫叶比二月的春花还要红艳' }
+      ],
+      translation: '石路蜿蜒远上秋山深处，白云缭绕处依稀有人家。停下车来是因为喜爱傍晚枫林，经霜的枫叶红得胜过二月春花。',
+      mood: '意境：寒山、石径、红枫。秋色胜春光——一反悲秋传统，写出秋林晚景的生机与热烈。',
+      scenery: [
+        { type: 'autumn', x: 0, y: 0 }, { type: 'cloud', x: 560, y: 120 },
+        { type: 'mountain', x: 260, y: 300, size: 160 }, { type: 'maple', x: 620, y: 300 },
+        { type: 'maple', x: 740, y: 330, size: 0.8 }
+      ]
+    },
+    {
+      id: 'qingming', title: '清明', author: '杜牧', dynasty: '唐',
+      grade: '小学',
+      lines: [
+        { text: '清明时节雨纷纷', note: '清明时候，细雨纷纷飘落' },
+        { text: '路上行人欲断魂', note: '路上的行人心情愁闷，像丢了魂' },
+        { text: '借问酒家何处有', note: '向人打听哪里有酒家可以歇脚' },
+        { text: '牧童遥指杏花村', note: '牧童远远地指了指杏花深处的村庄' }
+      ],
+      translation: '清明时节细雨纷纷飘洒，路上行人个个愁绪满怀。请问哪里有酒家？牧童笑着远远指向杏花深处的村庄。',
+      mood: '意境：细雨、行人、杏花村。雨中问路的日常一幕，"遥指"一词把画面推向远方，愁绪里有生气。',
+      scenery: [
+        { type: 'day', x: 0, y: 0, overcast: true }, { type: 'rain', x: 450, y: 0 },
+        { type: 'willow', x: 120, y: 300 }, { type: 'person', x: 400, y: 330, size: 56 },
+        { type: 'flower', x: 700, y: 330 }, { type: 'ground', x: 450, y: 400 }
+      ]
+    },
+    {
+      id: 'xiaochusong', title: '晓出净慈寺送林子方', author: '杨万里', dynasty: '宋',
+      grade: '小学',
+      lines: [
+        { text: '毕竟西湖六月中', note: '六月里的西湖毕竟与别处不同' },
+        { text: '风光不与四时同', note: '这里的风光和其他季节大不一样' },
+        { text: '接天莲叶无穷碧', note: '莲叶一直铺到天边，绿得没有尽头' },
+        { text: '映日荷花别样红', note: '朝阳映照下的荷花显得格外红艳' }
+      ],
+      translation: '六月西湖的风光与其他季节截然不同：莲叶接到天边一片碧绿，朝阳下的荷花红得格外好看。',
+      mood: '意境：莲叶、荷花、朝阳。以"无穷碧"衬"别样红"，色彩对撞出六月西湖的壮美，送别之情藏于景中。',
+      scenery: [
+        { type: 'day', x: 0, y: 0 }, { type: 'sun', x: 700, y: 100, size: 48 },
+        { type: 'river', x: 450, y: 320 },
+        { type: 'lotus', x: 300, y: 300 }, { type: 'lotus', x: 560, y: 330, size: 0.85 }
+      ]
     }
   ];
 
@@ -160,8 +228,40 @@ const Chinese = (() => {
     day(ctx, x, y, s, t, o) {
       const g = ctx.createLinearGradient(0, 0, 0, 460);
       if (o && o.hot) { g.addColorStop(0, '#f0a54a'); g.addColorStop(1, '#f7d9a0'); }
+      else if (o && o.overcast) { g.addColorStop(0, '#9aa7b8'); g.addColorStop(1, '#cfd6de'); }
       else { g.addColorStop(0, '#8ec9f0'); g.addColorStop(1, '#d9ecd8'); }
       ctx.fillStyle = g; ctx.fillRect(0, 0, 900, 460);
+    },
+    autumn(ctx, x, y, s, t, o) { // 深秋暖色天空（山行）
+      const g = ctx.createLinearGradient(0, 0, 0, 460);
+      g.addColorStop(0, '#6d7fa8'); g.addColorStop(0.55, '#c9a06b'); g.addColorStop(1, '#e8c48e');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, 900, 460);
+    },
+    rain(ctx, x, y, s, t) { // 纷纷细雨（清明）：整幅画面上的斜雨丝
+      ctx.strokeStyle = 'rgba(190,210,235,.55)'; ctx.lineWidth = 1.2; ctx.lineCap = 'round';
+      for (let i = 0; i < 90; i++) {
+        const rx = (i * 137.5 + Math.sin(t / 900 + i) * 6) % 940 - 20;
+        const ry = (t / 9 + i * 53) % 500 - 20;
+        ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - 4, ry + 13); ctx.stroke();
+      }
+    },
+    maple(ctx, x, y, s, t) { // 霜叶红枫（山行）
+      const sc = s || 1;
+      ctx.strokeStyle = '#6b4a32'; ctx.lineWidth = 7 * sc; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x, y + 60); ctx.quadraticCurveTo(x - 4, y - 20, x, y - 70 * sc); ctx.stroke();
+      const lobes = [[-40, -90, 26], [36, -104, 24], [-16, -128, 22], [12, -60, 30], [-52, -50, 20], [58, -66, 18]];
+      lobes.forEach(l => {
+        ctx.fillStyle = `rgba(${196 + Math.floor(30 * Math.abs(Math.sin(l[0])))},60,44,.92)`;
+        ctx.beginPath(); ctx.ellipse(x + l[0] * sc, y + l[1] * sc, l[2] * sc, l[2] * 0.72 * sc, l[0] / 60, 0, Math.PI * 2); ctx.fill();
+      });
+      // 飘落的霜叶
+      for (let i = 0; i < 6; i++) {
+        const fy = (t / 26 + i * 87) % 200;
+        ctx.fillStyle = 'rgba(214,78,52,.8)';
+        ctx.beginPath();
+        ctx.ellipse(x + 70 + i * 24 - Math.sin(t / 700 + i) * 14, y - 40 + fy, 5 * sc, 3.6 * sc, t / 500 + i, 0, Math.PI * 2);
+        ctx.fill();
+      }
     },
     dawn(ctx, x, y, s, t, o) { SCENERY.night(ctx, x, y, s, t, { dawn: true }); },
     moon(ctx, x, y, s) {
@@ -476,7 +576,7 @@ const Chinese = (() => {
       }
       raf = requestAnimationFrame(draw);
     };
-    raf = requestAnimationFrame(draw);
+    draw(performance.now());   // 立即画首帧（顺带启动动画循环），选诗瞬间就能看到画面
   }
 
   function showOutline(id) {
@@ -531,8 +631,10 @@ const Chinese = (() => {
       const pane = $('#cn-pane-' + name);
       if (pane) pane.classList.toggle('hidden', name !== t);
     });
+    // 先停旧动画帧再切换：若在 renderPoem 之后取消，会把刚启动的意境图动画帧杀掉，
+    // 导致切回"古诗文意境"标签时画面冻结在旧帧
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
     if (t === 'poem') renderPoem();
-    if (raf) cancelAnimationFrame(raf);
   }
 
   function init() {
